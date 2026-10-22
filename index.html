@@ -243,7 +243,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-101627';
+  const VERSAO = '20261022-101902';
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -304,7 +304,8 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     const pr = fetch(caminho, { method: 'HEAD' })
       .then((r) => {
         const tipo = r.headers.get('content-type') || '';
-        if (r.ok && !tipo.includes('text/html')) return comVersao(caminho);
+        // sem ?v= aqui: o app de AR do Google (Scene Viewer) não aceita parâmetros extras no endereço do modelo
+        if (r.ok && !tipo.includes('text/html')) return caminho;
         throw new Error('sem glb');
       })
       .catch(() => fetch(caminho + '.b64.txt')
