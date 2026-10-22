@@ -81,7 +81,7 @@ function aplicarOclusao(material, uniforms) {
         '  vec2 duv = (uOccUv * vec4(nv, 0.0, 1.0)).xy;',
         '  vec2 rg = texture2D(uOccTex, duv).rg;',
         '  float real = (rg.r * 255.0 + rg.g * 65280.0) * uOccEscala;',
-        '  if (real > 0.0 && real < vOccDepth - 0.025) discard;',
+        '  if (real > 0.0 && real < vOccDepth - 0.04) discard;',
         '}',
       ].join('\n')),
     ].join('\n');
@@ -209,12 +209,34 @@ const CHAVE_DIARIO = 'kardap-ar-diario';
 let diario = [];
 try { diario = JSON.parse(localStorage.getItem(CHAVE_DIARIO) || '[]'); } catch (e) { diario = []; }
 let houveErro = false;
+const modoDebug = /[?&]debug\b/.test(location.search);
 function anotar(texto) {
   const agora = new Date();
   const hora = agora.toTimeString().slice(0, 8);
   diario.push(`${hora} ${texto}`);
   diario = diario.slice(-25);
   try { localStorage.setItem(CHAVE_DIARIO, JSON.stringify(diario)); } catch (e) { /* sem armazenamento */ }
+  const painel = document.getElementById('ar-log');
+  if (modoDebug && painel) {
+    let ini = 0;
+    diario.forEach((l, i) => { if (l.endsWith('———')) ini = i + 1; });
+    painel.textContent = diario.slice(ini).slice(-9).map((l) => l.slice(9)).join('\n');
+    painel.hidden = false;
+  }
+}
+
+// Lê a profundidade de um ponto da tela pelo mesmo caminho do shader (matriz + bytes crus),
+// para conferir com o valor oficial do navegador (getDepthInMeters).
+function amostrarComoShader(prof, formato, x, y) {
+  const m = prof.normDepthBufferFromNormView.matrix;
+  const u = m[0] * x + m[4] * y + m[12];
+  const v = m[1] * x + m[5] * y + m[13];
+  const col = Math.min(prof.width - 1, Math.max(0, Math.floor(u * prof.width)));
+  const lin = Math.min(prof.height - 1, Math.max(0, Math.floor(v * prof.height)));
+  const i = lin * prof.width + col;
+  if (formato === 'float32') return new Float32Array(prof.data)[i] * prof.rawValueToMeters;
+  const b = new Uint8Array(prof.data);
+  return (b[2 * i] + 256 * b[2 * i + 1]) * prof.rawValueToMeters;
 }
 function registrarErro(onde, erro) {
   houveErro = true;
@@ -300,6 +322,9 @@ async function iniciar(urlModelo, aoSair) {
 
   const encerrar = () => { try { sessao.end(); } catch (e) { /* já encerrada */ } };
   let saiuPeloBotao = false;
+  let fechouRapido = false;
+  let colocouAlgumaVez = false;
+  const inicioSessao = performance.now();
   const naoSelecionar = (e) => e.preventDefault(); // toques nos botões não colocam o prato
   btnSair.addEventListener('beforexrselect', naoSelecionar);
   btnMover.addEventListener('beforexrselect', naoSelecionar);
@@ -307,6 +332,8 @@ async function iniciar(urlModelo, aoSair) {
 
   sessao.addEventListener('end', () => {
     anotar(saiuPeloBotao ? 'sessão encerrada (botão ×)' : 'sessão encerrada pelo sistema');
+    // fechou sozinha logo no começo, sem nunca colocar o prato: típico de aba embutida em outro app
+    if (!saiuPeloBotao && !colocouAlgumaVez && performance.now() - inicioSessao < 15000) fechouRapido = true;
     sessaoAtiva = null;
     window.removeEventListener('error', aoErroGlobal);
     window.removeEventListener('unhandledrejection', aoErroGlobal);
@@ -322,7 +349,7 @@ async function iniciar(urlModelo, aoSair) {
     btnMover.removeEventListener('beforexrselect', naoSelecionar);
     ui.hidden = true;
     btnMover.hidden = true;
-    if (aoSair) aoSair({ houveErro, saiuPeloBotao });
+    if (aoSair) aoSair({ houveErro, saiuPeloBotao, fechouRapido });
   });
 
   let xAnterior = null;
@@ -394,6 +421,7 @@ async function iniciar(urlModelo, aoSair) {
     let leuProfundidade = false;
     let quadrosAposColocar = 0;
 
+
     let ultimaPose = null; // cópia da posição da mira no último quadro (válida fora do quadro)
 
     sessao.addEventListener('select', (evento) => {
@@ -409,6 +437,8 @@ async function iniciar(urlModelo, aoSair) {
         colocado = true;
         btnMover.hidden = false;
         mostrar('Tamanho real · arraste para girar');
+        colocouAlgumaVez = true;
+        anotar(`prato a ${posCamera.distanceTo(ancora.position).toFixed(2)} m da câmera`);
         // âncora do ARCore: mantém o prato preso à mesa mesmo se o rastreamento se ajustar
         const quadro = evento.frame;
         if (quadro && quadro.createAnchor && window.XRRigidTransform) {
@@ -453,7 +483,16 @@ async function iniciar(urlModelo, aoSair) {
           const vp = camXR.cameras && camXR.cameras[0] && camXR.cameras[0].viewport;
           const prof = poseVisor ? frame.getDepthInformation(poseVisor.views[0]) : null;
           if (prof && vp && vp.z > 0) {
-            if (!leuProfundidade) { leuProfundidade = true; anotar(`profundidade lida · ${prof.width}x${prof.height}`); }
+            if (!leuProfundidade) {
+              leuProfundidade = true;
+              const oficial = (x, y) => { try { return prof.getDepthInMeters(x, y).toFixed(2); } catch (e) { return '?'; } };
+              const nosso = (x, y) => { try { return amostrarComoShader(prof, formatoProf, x, y).toFixed(2); } catch (e) { return '?'; } };
+              const m = prof.normDepthBufferFromNormView.matrix;
+              anotar(`profundidade ${prof.width}x${prof.height} · escala ${prof.rawValueToMeters}`);
+              anotar(`oficial  centro ${oficial(0.5, 0.5)} topo ${oficial(0.5, 0.15)} base ${oficial(0.5, 0.85)} esq ${oficial(0.15, 0.5)}`);
+              anotar(`shader   centro ${nosso(0.5, 0.5)} topo ${nosso(0.5, 0.15)} base ${nosso(0.5, 0.85)} esq ${nosso(0.15, 0.5)}`);
+              anotar(`matriz ${[m[0], m[1], m[4], m[5], m[12], m[13]].map((n) => (+n).toFixed(2)).join(' ')} · tela ${vp.z}x${vp.w}`);
+            }
             oclusao.atualizar(prof, formatoProf, vp);
           }
           else oclusao.desligar();

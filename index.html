@@ -168,6 +168,11 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   width: 44px; height: 44px; border-radius: 99px; border: 0; font-size: 24px; line-height: 1;
   color: #fff; background: rgba(0, 0, 0, .5); cursor: pointer;
 }
+.ar-log {
+  position: absolute; left: calc(env(safe-area-inset-left, 0px) + 10px); right: 70px; top: calc(env(safe-area-inset-top, 0px) + 12px);
+  margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(0, 0, 0, .6); color: #fff;
+  font: 10px/1.4 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none;
+}
 .ar-rodape {
   position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
   display: grid; justify-items: center; gap: 12px; padding-inline: 16px;
@@ -272,6 +277,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
 <div class="ar-ui" id="ar-ui" hidden>
   <button class="ar-sair" id="ar-sair" type="button" aria-label="Sair da realidade aumentada">×</button>
+  <pre class="ar-log" id="ar-log" hidden></pre>
   <div class="ar-rodape">
     <p class="ar-dica" id="ar-dica">Aponte a câmera para a mesa e mova o celular devagar</p>
     <button class="ar-mover" id="ar-mover" type="button" hidden>Mudar de lugar</button>
@@ -284,7 +290,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-125737';
+  const VERSAO = '20261022-131052';
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -410,7 +416,9 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   }
   function aoSairDaAR(info) {
     btnAR.removeAttribute('aria-busy');
-    if ((info && info.houveErro) || modoDebug) mostrarDiario('Diagnóstico da AR (mande um print):');
+    if (info && info.fechouRapido) {
+      mostrarDiario('A câmera fechou sozinha. Se você abriu este link de dentro de outro app (Claude, WhatsApp…), toque em ⋮ → “Abrir no Chrome” e tente de novo.');
+    } else if ((info && info.houveErro) || modoDebug) mostrarDiario('Diagnóstico da AR (mande um print):');
   }
 
   btnAR.addEventListener('click', () => {
@@ -421,7 +429,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     if (K && K.estado && K.estado().ativa) {
       K.encerrarTravada().finally(() => {
         btnAR.removeAttribute('aria-busy');
-        mostrarDiario('A AR anterior travou. Mande um print disto e toque de novo para tentar outra vez.');
+        mostrarDiario('A câmera fechou sozinha. Se você abriu este link de dentro de outro app (Claude, WhatsApp…), toque em ⋮ → “Abrir no Chrome” e tente de novo. Se já estiver no Chrome, mande um print disto.');
       });
       return;
     }
