@@ -12,7 +12,11 @@
 <script type="module">
   // AR estável por padrão; a versão de teste (oclusão + diagnóstico) só com ?oclusao ou ?debug
   const teste = /[?&](oclusao|debug)\b/.test(location.search);
-  import(teste ? './ar-mesa-teste.js' : './ar-mesa.js');
+  // ?v= com a versão publicada: o Chrome não reaproveita um arquivo de AR antigo do cache
+  const v = window.KARDAP_VERSAO || Date.now();
+  import((teste ? './ar-mesa-teste.js' : './ar-mesa.js') + '?v=' + v);
+  const etiqueta = document.getElementById('ar-versao');
+  if (etiqueta) etiqueta.textContent = (teste ? 'teste' : 'estável') + ' · ' + String(v).slice(-6);
 </script>
 <style>
 /* Layout: estilo de menu de delivery — banner de ponta a ponta, títulos de seção em maiúsculas,
@@ -177,6 +181,10 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(0, 0, 0, .6); color: #fff;
   font: 10px/1.4 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none;
 }
+.ar-versao {
+  position: absolute; left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  font: 10px/1 var(--font-mono); color: rgba(255, 255, 255, .7); pointer-events: none;
+}
 .ar-rodape {
   position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
   display: grid; justify-items: center; gap: 12px; padding-inline: 16px;
@@ -282,6 +290,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 <div class="ar-ui" id="ar-ui" hidden>
   <button class="ar-sair" id="ar-sair" type="button" aria-label="Sair da realidade aumentada">×</button>
   <pre class="ar-log" id="ar-log" hidden></pre>
+  <span class="ar-versao" id="ar-versao"></span>
   <div class="ar-rodape">
     <p class="ar-dica" id="ar-dica">Aponte a câmera para a mesa e mova o celular devagar</p>
     <button class="ar-mover" id="ar-mover" type="button" hidden>Mudar de lugar</button>
@@ -294,7 +303,8 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-131418';
+  const VERSAO = '20261022-131652';
+  window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
