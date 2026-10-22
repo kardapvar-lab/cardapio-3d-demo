@@ -284,17 +284,19 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
       <div class="bloco"><h4>Alergénios</h4><div class="tags" id="f-alerg"></div></div>
     </div>
   </div>
+  <!-- camada da AR: fica DENTRO da ficha. Fora dela, a ficha (modal) deixa o resto da página
+       sem receber toques, e o toque na câmera atravessava até o botão "Ver na minha mesa". -->
+  <div class="ar-ui" id="ar-ui" hidden>
+    <button class="ar-sair" id="ar-sair" type="button" aria-label="Sair da realidade aumentada">×</button>
+    <pre class="ar-log" id="ar-log" hidden></pre>
+    <span class="ar-versao" id="ar-versao"></span>
+    <div class="ar-rodape">
+      <p class="ar-dica" id="ar-dica">Aponte a câmera para a mesa e mova o celular devagar</p>
+      <button class="ar-mover" id="ar-mover" type="button" hidden>Mudar de lugar</button>
+    </div>
+  </div>
 </dialog>
 
-<div class="ar-ui" id="ar-ui" hidden>
-  <button class="ar-sair" id="ar-sair" type="button" aria-label="Sair da realidade aumentada">×</button>
-  <pre class="ar-log" id="ar-log" hidden></pre>
-  <span class="ar-versao" id="ar-versao"></span>
-  <div class="ar-rodape">
-    <p class="ar-dica" id="ar-dica">Aponte a câmera para a mesa e mova o celular devagar</p>
-    <button class="ar-mover" id="ar-mover" type="button" hidden>Mudar de lugar</button>
-  </div>
-</div>
 
 <script>
 (() => {
@@ -302,7 +304,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-133611';
+  const VERSAO = '20261022-134053';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
@@ -435,7 +437,9 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     avisarErroAR(titulo + '\n\n' + linhas.join('\n'), 90000);
     arErro.scrollTop = arErro.scrollHeight; // mostra o fim (o passo onde parou)
   }
+  const conteudoFicha = document.querySelector('.ficha-grid');
   function aoSairDaAR(info) {
+    conteudoFicha.inert = false;
     btnAR.removeAttribute('aria-busy');
     if (info && info.fechouRapido) {
       mostrarDiario('A câmera fechou sozinha. Se você abriu este link de dentro de outro app (Claude, WhatsApp…), toque em ⋮ → “Abrir no Chrome” e tente de novo.');
@@ -446,6 +450,8 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     arErro.hidden = true;
     arErro.classList.remove('diario');
     const K = window.KardapAR;
+    // Câmera aberta e desenhando: este clique só pode ser um toque que atravessou a AR. Ignora.
+    if (K && K.estado && K.estado().ativa && K.estado().msDesdeQuadro < 2000) return;
     // A câmera fechou sozinha da última vez e a sessão ficou presa: encerra e mostra o diagnóstico
     if (K && K.estado && K.estado().ativa) {
       K.encerrarTravada().finally(() => {
@@ -456,8 +462,10 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     }
     if (temWebXR && window.KardapAR && modeloAtual) {
       btnAR.setAttribute('aria-busy', 'true');
+      conteudoFicha.inert = true; // nada da ficha recebe toque enquanto a câmera está aberta
       window.KardapAR.iniciar(modeloAtual, aoSairDaAR)
         .catch(() => {
+          conteudoFicha.inert = false;
           btnAR.removeAttribute('aria-busy');
           mostrarDiario('Não foi possível abrir a AR. Confira a permissão da câmera; se continuar, mande um print disto:');
         });
