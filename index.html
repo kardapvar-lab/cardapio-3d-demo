@@ -9,7 +9,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Cormorant+Garamond:wght@500&family=IBM+Plex+Mono:wght@500&display=swap">
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 /* Layout: estilo de menu de delivery — banner de ponta a ponta, títulos de seção em maiúsculas,
    cada prato numa linha com texto à esquerda e miniatura 3D à direita, separados por linhas finas. */
@@ -124,6 +123,9 @@ dialog.ficha {
   background: var(--surface); color: var(--ink); font-family: var(--font);
   border-radius: 18px 18px 0 0; overflow: hidden;
 }
+dialog.ficha { overscroll-behavior: contain; touch-action: pan-y; }
+.palco { touch-action: none; }
+html.travado, html.travado body { overflow: hidden; }
 dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 @media (min-width: 760px) {
   dialog.ficha { margin: auto; max-width: 900px; width: calc(100% - 48px); border-radius: 18px; max-height: 88vh; }
@@ -133,7 +135,6 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 .ficha-grid { display: grid; max-height: inherit; }
 .palco { position: relative; background: var(--stage); height: 50vh; min-height: 320px; }
 .palco model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
-.palco.com-aviso model-viewer { height: calc(100% - 74px); }
 .fechar {
   position: absolute; top: 12px; right: 12px; z-index: 2; width: 38px; height: 38px; border-radius: 99px;
   border: 0; background: var(--surface); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer;
@@ -151,16 +152,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
 }
 .btn-ar svg { width: 18px; height: 18px; }
-.sem-ar {
-  position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; gap: 12px; align-items: center;
-  background: var(--surface); border-radius: 12px; padding: 10px 12px;
-  font-size: 12px; line-height: 1.4; color: var(--muted);
-}
-.sem-ar .qr { flex: none; background: #fff; padding: 4px; border-radius: 6px; line-height: 0; }
-.sem-ar .qr img, .sem-ar .qr canvas { width: 76px !important; height: 76px !important; }
-.sem-ar strong { color: var(--ink); display: block; font-size: 13.5px; font-weight: 600; }
-
-.detalhe { padding: 20px 20px 28px; overflow-y: auto; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.detalhe { padding: 20px 20px 28px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: grid; gap: 16px; align-content: start; min-width: 0; }
 .detalhe h2 { font-weight: 500; font-size: 24px; line-height: 1.25; margin: 0; text-wrap: balance; }
 .detalhe .preco-grande { font-weight: 600; font-size: 19px; }
 .detalhe > p { margin: 0; color: var(--muted); font-size: 14px; }
@@ -217,7 +209,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
       <span class="dica-girar">Arraste para girar · pinça para zoom</span>
       <button class="fechar" id="fechar" aria-label="Fechar">×</button>
       <model-viewer id="viewer"
-        camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="1500" rotation-per-second="18deg"
+        camera-controls touch-action="none" auto-rotate auto-rotate-delay="1500" rotation-per-second="18deg"
         shadow-intensity="1" shadow-softness="0.8" exposure="1.05" environment-image="neutral"
         camera-orbit="30deg 62deg 105%" interaction-prompt="none"
         ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" ar-placement="floor">
@@ -227,10 +219,6 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
           Ver na minha mesa
         </button>
       </model-viewer>
-      <div class="sem-ar" id="sem-ar" hidden>
-        <div class="qr" id="qr" hidden></div>
-        <div><strong>Realidade aumentada no celular</strong>Abra este menu no celular e toque em “Ver na minha mesa” para pôr o prato em tamanho real na sua mesa.</div>
-      </div>
     </div>
     <div class="detalhe">
       <div style="display:grid;gap:4px">
@@ -326,7 +314,19 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   const viewer = $('#viewer');
   const ficha = $('#ficha');
-  let qrFeito = false;
+
+  // Trava a página de trás (inclusive no iPhone, que ignora overflow:hidden no body)
+  let rolagemSalva = 0;
+  function travarFundo() {
+    rolagemSalva = window.scrollY;
+    document.documentElement.classList.add('travado');
+    Object.assign(document.body.style, { position: 'fixed', top: `-${rolagemSalva}px`, left: '0', right: '0' });
+  }
+  function soltarFundo() {
+    document.documentElement.classList.remove('travado');
+    Object.assign(document.body.style, { position: '', top: '', left: '', right: '' });
+    window.scrollTo(0, rolagemSalva);
+  }
 
   function abrir(id) {
     const p = dados.produtos.find((x) => x.id === id);
@@ -345,29 +345,15 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     $('#f-alerg').innerHTML = p.alergenos.length
       ? p.alergenos.map((a) => `<span class="tag">${esc(a)}</span>`).join('')
       : '<span class="tag">Sem alergénios declarados</span>';
-    if (!ficha.open) ficha.showModal();
+    if (!ficha.open) { travarFundo(); ficha.showModal(); }
     try { history.replaceState(null, '', '#' + p.id); } catch (e) {}
   }
 
-  function verificarAR() {
-    const semAR = !viewer.canActivateAR;
-    $('#sem-ar').hidden = !semAR;
-    document.querySelector('.palco').classList.toggle('com-aviso', semAR);
-    if (semAR && !qrFeito && window.QRCode) {
-      const host = location.hostname;
-      // Só desenha o QR quando a página está no seu próprio endereço (ex.: GitHub Pages).
-      if (location.protocol === 'https:' && !/claude/i.test(host)) {
-        new QRCode($('#qr'), { text: location.href.split('#')[0], width: 152, height: 152, colorDark: '#131a29', colorLight: '#ffffff' });
-        $('#qr').hidden = false;
-      }
-      qrFeito = true;
-    }
-  }
-  viewer.addEventListener('load', verificarAR);
 
   $('#fechar').addEventListener('click', () => ficha.close());
   ficha.addEventListener('click', (e) => { if (e.target === ficha) ficha.close(); });
-  ficha.addEventListener('close', () => { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} });
+  ficha.addEventListener('close', () => {
+    soltarFundo(); try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} });
 
   // Abas acompanham a rolagem (scroll spy)
   const semAnimacao = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
