@@ -284,7 +284,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-115824';
+  const VERSAO = '20261022-125737';
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -399,9 +399,14 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   // Diagnóstico: mostra o diário da AR (os últimos passos registrados) na ficha do prato
   const modoDebug = /[?&]debug\b/.test(location.search);
   function mostrarDiario(titulo) {
-    const linhas = (window.KardapAR && window.KardapAR.diario && window.KardapAR.diario()) || [];
+    const todas = (window.KardapAR && window.KardapAR.diario && window.KardapAR.diario()) || [];
+    // só a última tentativa (a partir da última linha "———"), sem o separador
+    let inicio = 0;
+    todas.forEach((l, i) => { if (l.endsWith('———')) inicio = i + 1; });
+    const linhas = todas.slice(inicio).map((l) => l.replace(/ · \(Linux; /, ' · (').replace(/AppleWebKit\S+ \(KHTML, like Gecko\) /, ''));
     arErro.classList.add('diario');
-    avisarErroAR(titulo + '\n\n' + linhas.slice(-14).join('\n'), 90000);
+    avisarErroAR(titulo + '\n\n' + linhas.join('\n'), 90000);
+    arErro.scrollTop = arErro.scrollHeight; // mostra o fim (o passo onde parou)
   }
   function aoSairDaAR(info) {
     btnAR.removeAttribute('aria-busy');

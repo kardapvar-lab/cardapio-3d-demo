@@ -271,8 +271,14 @@ async function iniciar(urlModelo, aoSair) {
     throw erro;
   }
   sessaoAtiva = sessao;
-  anotar(`sessão aberta · recursos: ${(sessao.enabledFeatures || []).join(', ') || '?'}`
-    + (sessao.depthUsage ? ` · profundidade: ${sessao.depthUsage}/${sessao.depthDataFormat}` : ''));
+  // Atenção: no Chrome, ler sessao.depthUsage sem profundidade ligada lança erro. Só lê se estiver ligada.
+  const recursos = Array.isArray(sessao.enabledFeatures) ? sessao.enabledFeatures : [];
+  const temProfundidade = recursos.includes('depth-sensing');
+  let infoProf = '';
+  if (temProfundidade) {
+    try { infoProf = ` · profundidade: ${sessao.depthUsage}/${sessao.depthDataFormat}`; } catch (e) { infoProf = ' · profundidade: ?'; }
+  }
+  anotar(`sessão aberta · recursos: ${recursos.join(', ') || '?'}${infoProf}`);
 
   // capta erros soltos enquanto a AR está aberta
   const aoErroGlobal = (e) => registrarErro('página', e.error || e.message || e.reason || e);
@@ -353,8 +359,11 @@ async function iniciar(urlModelo, aoSair) {
     renderer.domElement.style.cssText = 'position:fixed;inset:0;pointer-events:none;';
     document.body.appendChild(renderer.domElement);
 
-    const usaProfundidade = Array.isArray(sessao.enabledFeatures) && sessao.enabledFeatures.includes('depth-sensing')
-      && sessao.depthUsage === 'cpu-optimized';
+    let usaProfundidade = false;
+    let formatoProf = 'luminance-alpha';
+    if (temProfundidade) {
+      try { usaProfundidade = sessao.depthUsage === 'cpu-optimized'; formatoProf = sessao.depthDataFormat; } catch (e) { usaProfundidade = false; }
+    }
     let oclusao = usaProfundidade ? criarOclusao(THREE) : null;
     const montagem = montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao);
     const { cena, ancora, mira } = montagem;
@@ -445,7 +454,7 @@ async function iniciar(urlModelo, aoSair) {
           const prof = poseVisor ? frame.getDepthInformation(poseVisor.views[0]) : null;
           if (prof && vp && vp.z > 0) {
             if (!leuProfundidade) { leuProfundidade = true; anotar(`profundidade lida · ${prof.width}x${prof.height}`); }
-            oclusao.atualizar(prof, sessao.depthDataFormat, vp);
+            oclusao.atualizar(prof, formatoProf, vp);
           }
           else oclusao.desligar();
         } catch (erro) {
