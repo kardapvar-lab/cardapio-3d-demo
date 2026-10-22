@@ -279,13 +279,19 @@ function anotar(texto) {
   diario.push(`${hora} ${texto}`);
   diario = diario.slice(-25);
   try { localStorage.setItem(CHAVE_DIARIO, JSON.stringify(diario)); } catch (e) { /* sem armazenamento */ }
+  atualizarPainel();
+}
+// Linha "ao vivo" do painel de diagnóstico (não vai para o diário guardado)
+let linhaAoVivo = '';
+function atualizarPainel() {
   const painel = document.getElementById('ar-log');
-  if (modoDebug && painel) {
-    let ini = 0;
-    diario.forEach((l, i) => { if (l.endsWith('———')) ini = i + 1; });
-    painel.textContent = diario.slice(ini).slice(-9).map((l) => l.slice(9)).join('\n');
-    painel.hidden = false;
-  }
+  if (!modoDebug || !painel) return;
+  let ini = 0;
+  diario.forEach((l, i) => { if (l.endsWith('———')) ini = i + 1; });
+  const linhas = diario.slice(ini).slice(-8).map((l) => l.slice(9));
+  if (linhaAoVivo) linhas.push('AO VIVO ' + linhaAoVivo);
+  painel.textContent = linhas.join('\n');
+  painel.hidden = false;
 }
 
 // Lê a profundidade de um ponto da tela pelo mesmo caminho do shader (matriz + bytes crus),
@@ -516,6 +522,7 @@ async function iniciar(urlModelo, aoSair) {
     let quadros = 0;
     let achouMesaUmaVez = false;
     let leuProfundidade = false;
+    let profundidadeValidaAnotada = false;
     let quadrosAposColocar = 0;
 
 
@@ -579,6 +586,21 @@ async function iniciar(urlModelo, aoSair) {
           const camXR = renderer.xr.getCamera();
           const vp = camXR.cameras && camXR.cameras[0] && camXR.cameras[0].viewport;
           const prof = poseVisor ? frame.getDepthInformation(poseVisor.views[0]) : null;
+          if (prof && vp && vp.z > 0 && modoDebug && quadros % 15 === 0) {
+            // leitura ao vivo: centro, base, esquerda, direita e o menor/maior valor da tela toda
+            const ler = (x, y) => { try { return prof.getDepthInMeters(x, y).toFixed(2); } catch (e) { return '?'; } };
+            const bytes = formatoProf === 'float32' ? null : new Uint8Array(prof.data);
+            let min = Infinity, max = 0, validos = 0;
+            const total = prof.width * prof.height;
+            for (let i = 0; i < total; i++) {
+              const v = bytes ? (bytes[2 * i] + 256 * bytes[2 * i + 1]) : 0;
+              if (v > 0) { validos++; if (v < min) min = v; if (v > max) max = v; }
+            }
+            const k = prof.rawValueToMeters;
+            linhaAoVivo = `c ${ler(0.5, 0.5)} b ${ler(0.5, 0.85)} e ${ler(0.15, 0.5)} d ${ler(0.85, 0.5)} · min ${validos ? (min * k).toFixed(2) : '-'} max ${validos ? (max * k).toFixed(2) : '-'} · ${Math.round(100 * validos / total)}% válidos`;
+            atualizarPainel();
+            if (validos > 0 && !profundidadeValidaAnotada) { profundidadeValidaAnotada = true; anotar('profundidade começou a ter valores'); }
+          }
           if (prof && vp && vp.z > 0) {
             if (!leuProfundidade) {
               leuProfundidade = true;
