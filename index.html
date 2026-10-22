@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Cormorant+Garamond:wght@500&family=IBM+Plex+Mono:wght@500&display=swap">
-<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 <script type="module">
   // AR estável por padrão; a versão de teste (oclusão + diagnóstico) só com ?oclusao ou ?debug
   const teste = /[?&](oclusao|debug)\b/.test(location.search);
@@ -303,7 +302,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-131652';
+  const VERSAO = '20261022-132510';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
@@ -401,6 +400,14 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   const btnAR = $('#btn-ar');
   const arErro = $('#ar-erro');
   const temQuickLook = (() => { const a = document.createElement('a'); return !!(a.relList && a.relList.supports && a.relList.supports('ar')); })();
+  // O visualizador <model-viewer> só serve para o Quick Look do iPhone. No Android ele não é carregado,
+  // para não ocupar memória de vídeo que a AR vai precisar.
+  if (temQuickLook) {
+    const mv = document.createElement('script');
+    mv.type = 'module';
+    mv.src = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+    document.head.appendChild(mv);
+  }
   let temWebXR = false;
   let modeloAtual = null;
   const suporteXR = (navigator.xr && navigator.xr.isSessionSupported)
@@ -468,7 +475,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     arErro.hidden = true;
     urlDoModelo(p.modelo).then((u) => {
       modeloAtual = u;
-      viewer.src = u;
+      if (temQuickLook) viewer.src = u;
       if (window.KardapAR && temWebXR) window.KardapAR.preCarregar(u);
     });
     viewer.alt = `Modelo 3D de ${p.nome}`;

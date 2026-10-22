@@ -140,11 +140,40 @@ function criarOclusao(THREE) {
   };
 }
 
+// Um só motor 3D para todas as sessões de AR. Criar e destruir um contexto WebGL a cada vez
+// enche a memória de vídeo de celulares mais antigos e pode travar a página ao sair da AR.
+let rendererUnico = null;
+let ambienteUnico = null;
+function obterRenderer(THREE, RoomEnvironment) {
+  if (!rendererUnico) {
+    const poucaMemoria = (navigator.deviceMemory || 4) <= 4;
+    const r = new THREE.WebGLRenderer({ antialias: !poucaMemoria, alpha: true });
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    r.setSize(window.innerWidth, window.innerHeight);
+    r.toneMapping = THREE.NeutralToneMapping;
+    r.xr.enabled = true;
+    r.xr.setReferenceSpaceType('local');
+    if (poucaMemoria) r.xr.setFramebufferScaleFactor(0.8);
+    r.domElement.style.cssText = 'position:fixed;inset:0;pointer-events:none;display:none;';
+    document.body.appendChild(r.domElement);
+    const pmrem = new THREE.PMREMGenerator(r);
+    ambienteUnico = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    rendererUnico = r;
+  }
+  return rendererUnico;
+}
+
 // Monta a cena: luzes, o prato apoiado em y = 0 e a sombra. Também usada nos testes.
 function montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao) {
   const cena = new THREE.Scene();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  cena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  let pmrem = null;
+  if (ambienteUnico) {
+    cena.environment = ambienteUnico;
+  } else {
+    pmrem = new THREE.PMREMGenerator(renderer);
+    cena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  }
   cena.environmentIntensity = 0.85;
   cena.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 0.7));
   const sol = new THREE.DirectionalLight(0xffffff, 1.3);
@@ -331,6 +360,7 @@ async function iniciar(urlModelo, aoSair) {
   btnSair.onclick = () => { saiuPeloBotao = true; anotar('toque em sair'); encerrar(); };
 
   sessao.addEventListener('end', () => {
+    ui.hidden = true;
     anotar(saiuPeloBotao ? 'sessão encerrada (botão ×)' : 'sessão encerrada pelo sistema');
     // fechou sozinha logo no começo, sem nunca colocar o prato: típico de aba embutida em outro app
     if (!saiuPeloBotao && !colocouAlgumaVez && performance.now() - inicioSessao < 15000) fechouRapido = true;
@@ -342,7 +372,7 @@ async function iniciar(urlModelo, aoSair) {
     try { fonteHit && fonteHit.cancel(); } catch (e) { /* ignora */ }
     try { ancoraXR && ancoraXR.delete(); } catch (e) { /* ignora */ }
     if (pmrem) pmrem.dispose();
-    if (renderer) { renderer.dispose(); renderer.domElement.remove(); }
+    if (renderer) renderer.domElement.style.display = 'none'; // o motor fica guardado para a próxima vez
     ui.removeEventListener('touchstart', aoTocar);
     ui.removeEventListener('touchmove', aoArrastar);
     btnSair.removeEventListener('beforexrselect', naoSelecionar);
@@ -377,14 +407,8 @@ async function iniciar(urlModelo, aoSair) {
       XRWebGLBinding.prototype.__kardap = true;
     }
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.toneMapping = THREE.NeutralToneMapping;
-    renderer.xr.enabled = true;
-    renderer.xr.setReferenceSpaceType('local');
-    renderer.domElement.style.cssText = 'position:fixed;inset:0;pointer-events:none;';
-    document.body.appendChild(renderer.domElement);
+    renderer = obterRenderer(THREE, RoomEnvironment);
+    renderer.domElement.style.display = 'block';
 
     let usaProfundidade = false;
     let formatoProf = 'luminance-alpha';
