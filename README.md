@@ -7,6 +7,8 @@ Demo de cardápio digital com pratos em 3D e realidade aumentada (AR) em tamanho
 
 ```
 index.html              página do cardápio (HTML + CSS + JS, sem build)
+ar-mesa.js              realidade aumentada no Android (WebXR + three.js)
+teste-ar.html           página de diagnóstico de AR
 produtos.json           dados do restaurante, categorias e produtos
 versao.json             versão publicada (a página se recarrega sozinha quando muda)
 fotos/*.jpg             fotos dos pratos (lista e ficha)
@@ -18,9 +20,10 @@ ferramentas/versao.py   carimba uma versão nova antes de publicar
 ```
 
 - **Visualizador 3D e AR:** [`<model-viewer>`](https://modelviewer.dev) do Google, carregado por CDN.
-- **AR em tamanho real:** `ar-scale="fixed"` impede o cliente de redimensionar o prato na AR.
-  - Android: Scene Viewer (app de AR do Google; prende o prato na superfície)
-  - iPhone: Quick Look (o model-viewer gera o USDZ a partir do GLB sozinho)
+- **AR em tamanho real ("Ver na minha mesa"):**
+  - Android: AR própria em `ar-mesa.js` (WebXR). Uma mira do tamanho real do prato aparece na mesa;
+    um toque fixa o prato ali (âncora do ARCore), arrastar gira, e não há zoom.
+  - iPhone: Quick Look da Apple, pelo `<model-viewer>` com `ar-scale="fixed"`.
 - **Link direto para um prato:** `.../#bitoque` abre a ficha dele. Serve para QR code por prato.
 
 ## Publicar uma atualização
