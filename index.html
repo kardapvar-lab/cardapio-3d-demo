@@ -105,7 +105,7 @@ nav.cats {
 }
 .item .preco { margin-top: 6px; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
 .thumb { position: relative; width: 92px; height: 92px; border-radius: 8px; background: var(--stage); overflow: hidden; }
-.thumb model-viewer { width: 100%; height: 100%; --poster-color: transparent; pointer-events: none; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.18); display: block; }
 .badge3d {
   position: absolute; right: 5px; bottom: 5px; font: 600 10px/1 var(--font); letter-spacing: .04em;
   background: var(--accent); color: var(--accent-ink); padding: 4px 6px; border-radius: 5px;
@@ -135,17 +135,14 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 .ficha-grid { display: grid; max-height: inherit; }
 .palco { position: relative; background: var(--stage); height: 50vh; min-height: 320px; }
 .palco model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
+.foto-prato { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: contain; background: var(--stage); pointer-events: none; }
 .fechar {
   position: absolute; top: 12px; right: 12px; z-index: 2; width: 38px; height: 38px; border-radius: 99px;
   border: 0; background: var(--surface); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer;
   box-shadow: 0 1px 4px rgba(0,0,0,.15);
 }
-.dica-girar {
-  position: absolute; left: 12px; top: 16px; font-size: 11.5px; color: var(--muted);
-  background: var(--surface); padding: 4px 10px; border-radius: 99px;
-}
 .btn-ar {
-  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  position: absolute; z-index: 5; left: 50%; bottom: 16px; transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
   font: 500 15px/1 var(--font); color: var(--accent-ink); background: var(--accent);
   border: 0; border-radius: 99px; padding: 13px 20px; cursor: pointer;
@@ -206,14 +203,13 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 <dialog class="ficha" id="ficha" aria-labelledby="f-nome">
   <div class="ficha-grid">
     <div class="palco">
-      <span class="dica-girar">Arraste para girar · pinça para zoom</span>
       <button class="fechar" id="fechar" aria-label="Fechar">×</button>
       <model-viewer id="viewer"
-        camera-controls touch-action="none" auto-rotate auto-rotate-delay="1500" rotation-per-second="18deg"
         shadow-intensity="1" shadow-softness="0.8" exposure="1.05" environment-image="neutral"
         camera-orbit="30deg 62deg 105%" interaction-prompt="none"
-        ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" ar-placement="floor">
+        ar ar-modes="scene-viewer quick-look webxr" ar-scale="fixed" ar-placement="floor">
         <div slot="progress-bar"></div>
+        <img class="foto-prato" id="f-foto" alt="">
         <button slot="ar-button" class="btn-ar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
           Ver na minha mesa
@@ -265,9 +261,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
         <span class="preco">${moeda.format(p.preco)}</span>
       </div>
       <div class="thumb">
-        <model-viewer data-src="${p.modelo}" camera-orbit="30deg 55deg 72%"
-          interaction-prompt="none" disable-zoom shadow-intensity="0.8" environment-image="neutral"
-          loading="lazy" aria-hidden="true"><div slot="progress-bar"></div></model-viewer>
+        <img src="${p.foto}" alt="" loading="lazy" width="92" height="92">
         <span class="badge3d">3D</span>
       </div>
     </button>`;
@@ -281,7 +275,6 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
         return `<section class="secao" id="sec-${c.id}" data-sec="${c.id}"><h2>${esc(c.nome)}</h2>${itens.map(cardHTML).join('')}</section>`;
       });
     $('#menu').innerHTML = secoes.join('');
-    carregarMiniaturas();
   }
 
   // Resolve o endereço do modelo. Em hospedagem normal é o próprio .glb;
@@ -306,11 +299,6 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     cacheModelos.set(caminho, pr);
     return pr;
   }
-  function carregarMiniaturas() {
-    document.querySelectorAll('.thumb model-viewer[data-src]').forEach((mv) => {
-      urlDoModelo(mv.dataset.src).then((u) => { mv.src = u; });
-    });
-  }
 
   const viewer = $('#viewer');
   const ficha = $('#ficha');
@@ -333,7 +321,8 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     if (!p) return;
     urlDoModelo(p.modelo).then((u) => { viewer.src = u; });
     viewer.alt = `Modelo 3D de ${p.nome}`;
-    viewer.cameraOrbit = '30deg 62deg 105%';
+    $('#f-foto').src = p.foto;
+    $('#f-foto').alt = `Foto de ${p.nome}`;
     $('#f-nome').textContent = p.nome;
     $('#f-preco').textContent = moeda.format(p.preco);
     $('#f-desc').textContent = p.descricao;
