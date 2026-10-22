@@ -140,6 +140,40 @@ function criarOclusao(THREE) {
   };
 }
 
+// Pinta a profundidade medida por cima da câmera (diagnóstico): vermelho perto, verde médio, azul longe.
+// Usa exatamente o mesmo caminho do shader de oclusão, então mostra o que a oclusão "enxerga".
+function criarVisualizacaoProfundidade(THREE, uniforms) {
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: [
+      'uniform sampler2D uOccTex;',
+      'uniform mat4 uOccUv;',
+      'uniform vec2 uOccTela;',
+      'uniform float uOccEscala;',
+      'uniform float uOccAtiva;',
+      'void main() {',
+      '  if (uOccAtiva < 0.5) discard;',
+      '  vec2 nv = vec2(gl_FragCoord.x / uOccTela.x, 1.0 - gl_FragCoord.y / uOccTela.y);',
+      '  vec2 duv = (uOccUv * vec4(nv, 0.0, 1.0)).xy;',
+      '  vec2 rg = texture2D(uOccTex, duv).rg;',
+      '  float d = (rg.r * 255.0 + rg.g * 65280.0) * uOccEscala;',
+      '  if (d <= 0.0) discard;',
+      '  float t = clamp((d - 0.3) / 1.7, 0.0, 1.0);',
+      '  vec3 c = t < 0.5 ? mix(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), t * 2.0) : mix(vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0), (t - 0.5) * 2.0);',
+      '  gl_FragColor = vec4(c, 0.4);',
+      '}',
+    ].join('\n'),
+  });
+  const quadro = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+  quadro.frustumCulled = false;
+  quadro.renderOrder = 999;
+  return quadro;
+}
+
 // Um só motor 3D para todas as sessões de AR. Criar e destruir um contexto WebGL a cada vez
 // enche a memória de vídeo de celulares mais antigos e pode travar a página ao sair da AR.
 let rendererUnico = null;
@@ -357,7 +391,19 @@ async function iniciar(urlModelo, aoSair) {
   const naoSelecionar = (e) => e.preventDefault(); // toques nos botões não colocam o prato
   btnSair.addEventListener('beforexrselect', naoSelecionar);
   btnMover.addEventListener('beforexrselect', naoSelecionar);
-  btnSair.onclick = () => { saiuPeloBotao = true; anotar('toque em sair'); encerrar(); };
+  btnSair.onclick = () => {
+    if (saiuPeloBotao) return;
+    saiuPeloBotao = true;
+    anotar('toque em sair');
+    // Desliga desenho, mira, âncora e profundidade ANTES de encerrar: encerrar com tudo isso ainda
+    // ativo derrubava a página em alguns celulares.
+    try { if (renderer) renderer.setAnimationLoop(null); } catch (e) { /* ignora */ }
+    try { if (fonteHit) fonteHit.cancel(); } catch (e) { /* ignora */ }
+    fonteHit = null;
+    try { if (ancoraXR) ancoraXR.delete(); } catch (e) { /* ignora */ }
+    ancoraXR = null;
+    setTimeout(encerrar, 60);
+  };
 
   sessao.addEventListener('end', () => {
     ui.hidden = true;
@@ -432,6 +478,10 @@ async function iniciar(urlModelo, aoSair) {
     renderer.domElement.addEventListener('webglcontextlost', () => registrarErro('webgl', 'contexto gráfico perdido'));
     giro = montagem.giro;
     ancora.visible = false;
+    if (oclusao && modoDebug) {
+      cena.add(criarVisualizacaoProfundidade(THREE, oclusao.uniforms));
+      anotar('profundidade pintada na tela: vermelho perto, verde médio, azul longe');
+    }
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 30);
     const matriz = new THREE.Matrix4();
     const posCamera = new THREE.Vector3();
@@ -523,7 +573,7 @@ async function iniciar(urlModelo, aoSair) {
         if (quadrosAposColocar === 1) anotar('primeiro quadro com o prato');
         if (quadrosAposColocar === 60) anotar('60 quadros com o prato (ok)');
       }
-      if (oclusao && colocado) {
+      if (oclusao) {
         try {
           const poseVisor = frame.getViewerPose(ref);
           const camXR = renderer.xr.getCamera();
@@ -595,6 +645,7 @@ window.KardapAR = {
   houveErro: () => houveErro,
   _montarCena: montarCena,      // usados só nos testes
   _criarOclusao: criarOclusao,
+  _criarVisualizacao: criarVisualizacaoProfundidade,
   _carregarLibs: carregarLibs,
   _carregarModelo: carregarModelo,
 };
