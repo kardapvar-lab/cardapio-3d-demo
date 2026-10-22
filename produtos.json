@@ -23,21 +23,21 @@
       "id": "bitoque",
       "nome": "Bitoque da Casa",
       "categoria": "pratos",
-      "descricao": "Bife da vazia grelhado, ovo estrelado, batata frita caseira e salada da horta.",
+      "descricao": "Bife de porco grelhado com cebolada de tomate e pimento, coroado com ovo estrelado.",
       "preco": 12.5,
       "foto": "fotos/bitoque.jpg",
       "modelo": "modelos/bitoque.glb",
-      "medida": "Prato Ø 29 cm",
-      "peso_g": 380,
-      "kcal": 790,
+      "medida": "Prato Ø 25 cm",
+      "peso_g": 360,
+      "kcal": 680,
       "ingredientes": [
-        "Bife da vazia",
+        "Bife de porco",
         "Ovo",
-        "Batata",
-        "Alface",
         "Tomate",
-        "Azeite",
-        "Alho"
+        "Pimento",
+        "Cebola",
+        "Alho",
+        "Azeite"
       ],
       "alergenos": [
         "Ovo"
@@ -48,26 +48,24 @@
       "id": "hamburguer",
       "nome": "Hambúrguer Clássico",
       "categoria": "pratos",
-      "descricao": "Novilho 180 g, cheddar, alface, tomate e pão brioche com sésamo. Acompanha batata frita.",
+      "descricao": "Novilho 180 g, cheddar, alface e pão brioche, servido na tábua com batata frita caseira.",
       "preco": 11.0,
       "foto": "fotos/hamburguer.jpg",
       "modelo": "modelos/hamburguer.glb",
-      "medida": "Hambúrguer Ø 11 cm · altura 9 cm",
+      "medida": "Tábua 31 × 22 cm · com batata frita",
       "peso_g": 420,
       "kcal": 950,
       "ingredientes": [
         "Carne de novilho",
         "Queijo cheddar",
         "Alface",
-        "Tomate",
         "Pão brioche",
         "Batata"
       ],
       "alergenos": [
         "Glúten",
         "Leite",
-        "Ovo",
-        "Sésamo"
+        "Ovo"
       ]
     },
     {
@@ -78,7 +76,7 @@
       "preco": 10.5,
       "foto": "fotos/pizza-margherita.jpg",
       "modelo": "modelos/pizza-margherita.glb",
-      "medida": "Pizza Ø 30 cm · serve 1 a 2 pessoas",
+      "medida": "Pizza Ø 31 cm · serve 1 a 2 pessoas",
       "peso_g": 520,
       "kcal": 1150,
       "ingredientes": [
@@ -98,13 +96,13 @@
       "id": "pasteis-de-nata",
       "nome": "Pastéis de Nata",
       "categoria": "sobremesas",
-      "descricao": "Dois pastéis acabados de sair do forno, massa folhada estaladiça e canela à parte.",
-      "preco": 3.2,
+      "descricao": "Cinco pastéis acabados de sair do forno, massa folhada estaladiça e canela à parte.",
+      "preco": 6.5,
       "foto": "fotos/pasteis-de-nata.jpg",
       "modelo": "modelos/pasteis-de-nata.glb",
-      "medida": "2 unidades · Ø 7 cm cada",
-      "peso_g": 130,
-      "kcal": 380,
+      "medida": "5 unidades · Ø 7 cm cada",
+      "peso_g": 325,
+      "kcal": 950,
       "ingredientes": [
         "Massa folhada",
         "Gemas de ovo",
@@ -120,30 +118,29 @@
       "destaque": "Feito na casa"
     },
     {
-      "id": "taca-de-gelado",
-      "nome": "Taça de Gelado",
+      "id": "tarte-de-limao",
+      "nome": "Tarte de Limão Merengada",
       "categoria": "sobremesas",
-      "descricao": "Três bolas (chocolate, morango e baunilha) com calda de chocolate, bolacha wafer e cereja.",
-      "preco": 5.5,
-      "foto": "fotos/taca-de-gelado.jpg",
-      "modelo": "modelos/taca-de-gelado.glb",
-      "medida": "Taça Ø 11 cm · altura 18 cm",
-      "peso_g": 240,
-      "kcal": 520,
+      "descricao": "Massa amanteigada, creme de limão e merengue italiano tostado ao maçarico.",
+      "preco": 4.8,
+      "foto": "fotos/tarte-de-limao.jpg",
+      "modelo": "modelos/tarte-de-limao.glb",
+      "medida": "Tarte Ø 12 cm · altura 6 cm",
+      "peso_g": 170,
+      "kcal": 480,
       "ingredientes": [
-        "Gelado de chocolate",
-        "Gelado de morango",
-        "Gelado de baunilha",
-        "Calda de chocolate",
-        "Bolacha wafer",
-        "Cereja"
+        "Massa sablée",
+        "Limão",
+        "Ovos",
+        "Açúcar",
+        "Manteiga"
       ],
       "alergenos": [
-        "Leite",
         "Glúten",
         "Ovo",
-        "Soja"
-      ]
+        "Leite"
+      ],
+      "destaque": "Novidade"
     }
   ]
 }

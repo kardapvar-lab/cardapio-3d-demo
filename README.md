@@ -13,8 +13,8 @@ produtos.json           dados do restaurante, categorias e produtos
 versao.json             versão publicada (a página se recarrega sozinha quando muda)
 fotos/*.jpg             fotos dos pratos (lista e ficha)
 marca/                  logo Kardap (banner, tela de abertura e rodapé)
-modelos/*.glb           modelos 3D dos pratos, em metros (escala real)
-ferramentas/gerar-modelos.mjs   script que gerou os modelos (three.js)
+modelos/*.glb           scans 3D reais dos pratos, em metros (escala real)
+ferramentas/preparar-scans.mjs  baixa os scans reais (Sketchfab) e prepara os modelos
 ferramentas/versao.py   carimba uma versão nova antes de publicar
 .nojekyll               faz o GitHub Pages servir os arquivos como estão
 ```
@@ -86,15 +86,24 @@ Para trocar o JSON estático pela API, basta mudar a URL do `fetch('produtos.jso
 
 ## Regerar ou mudar os modelos
 
+Os 5 pratos são scans reais (fotogrametria) do Sketchfab, licença CC BY 4.0: os autores estão
+creditados no rodapé do `index.html` (a licença exige). O script baixa os originais, recorta o fundo,
+põe em escala real, reduz triângulos e texturas e troca o material "unlit" do scan por um normal
+(o Quick Look do iPhone ignora malhas unlit). Resultado: 1,0 a 2,6 MB por prato.
+
 ```bash
 cd ferramentas
-npm init -y && npm install three@0.169.0
-node gerar-modelos.mjs ../modelos
+npm install @gltf-transform/core@4.1.1 @gltf-transform/extensions@4.1.1 \
+  @gltf-transform/functions@4.1.1 meshoptimizer@0.22.0 sharp@0.33.5
+SKETCHFAB_TOKEN=... node preparar-scans.mjs ../modelos
 ```
 
-Os modelos de exemplo são feitos com formas geométricas. Para o produto real, o restaurante
-envia um `.glb` (fotogrametria/scan 3D do prato) no cadastro. Regra importante: **1 unidade = 1 metro**,
-senão a AR mostra o prato no tamanho errado.
+O token fica em sketchfab.com → Settings → Password & API. Para trocar um prato, mude a lista
+`PRATOS` no começo do script (id do modelo no Sketchfab e as etapas de recorte/escala).
+As fotos em `fotos/` são renders desses modelos, 900×900, no mesmo ângulo da ficha (30°, 62°).
+
+Para o produto real, o restaurante envia um `.glb` (fotogrametria/scan 3D do prato) no cadastro.
+Regra importante: **1 unidade = 1 metro**, senão a AR mostra o prato no tamanho errado.
 
 ## Próximos passos (fora deste demo)
 

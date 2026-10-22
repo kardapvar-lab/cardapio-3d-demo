@@ -122,6 +122,8 @@ nav.cats {
 footer { padding-block: 30px 40px; color: var(--muted); font-size: 12px; display: grid; justify-items: center; gap: 10px; }
 .assinatura { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .assinatura img { width: 26px; height: 26px; }
+.creditos { max-width: 46ch; text-align: center; font-size: 11px; line-height: 1.6; }
+.creditos a { color: inherit; }
 .assinatura b { font-family: var(--font-marca); font-weight: 500; font-size: 20px; letter-spacing: .14em; color: var(--ink); }
 .erro { padding: 20px 0; color: var(--muted); }
 
@@ -243,7 +245,14 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   <main class="coluna" id="menu"><p class="erro">A carregar o menu…</p></main>
   <footer class="coluna">
     <span class="assinatura">Menu digital por <img src="marca/kardap-k.png" alt=""><b>Kardap</b></span>
-    <span>Demonstração · produtos e modelos 3D de exemplo</span>
+    <span>Demonstração · produtos de exemplo</span>
+    <span class="creditos">Modelos 3D: scans reais de
+      <a href="https://sketchfab.com/3d-models/058dc197d2b5417a8f178cca22324442" target="_blank" rel="noopener">yoshimura.manufacturing</a>,
+      <a href="https://sketchfab.com/3d-models/0d339a3a91304192b4fc8d61ebd48bb1" target="_blank" rel="noopener">keithito</a>,
+      <a href="https://sketchfab.com/3d-models/ed38059be07544baae16dc8307618675" target="_blank" rel="noopener">db4</a>,
+      <a href="https://sketchfab.com/3d-models/5f556280ccf844eba357af7a5ff7a2b6" target="_blank" rel="noopener">mrak_CS</a> e
+      <a href="https://sketchfab.com/3d-models/db0d8656b7ca4ecd8efb134e2878c477" target="_blank" rel="noopener">Andrei_Alexandrescu</a>
+      (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>), recortados e postos em escala real</span>
   </footer>
 </div>
 
@@ -304,7 +313,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-135137';
+  const VERSAO = '20261022-234439';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
