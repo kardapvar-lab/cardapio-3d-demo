@@ -73,12 +73,14 @@ function aplicarOclusao(material, uniforms) {
       'uniform mat4 uOccUv;',
       'uniform vec2 uOccTela;',
       'uniform float uOccAtiva;',
+      'uniform float uOccEscala;',
       shader.fragmentShader.replace('#include <dithering_fragment>', [
         '#include <dithering_fragment>',
         'if (uOccAtiva > 0.5) {',
         '  vec2 nv = vec2(gl_FragCoord.x / uOccTela.x, 1.0 - gl_FragCoord.y / uOccTela.y);',
         '  vec2 duv = (uOccUv * vec4(nv, 0.0, 1.0)).xy;',
-        '  float real = texture2D(uOccTex, duv).r;',
+        '  vec2 rg = texture2D(uOccTex, duv).rg;',
+        '  float real = (rg.r * 255.0 + rg.g * 65280.0) * uOccEscala;',
         '  if (real > 0.0 && real < vOccDepth - 0.025) discard;',
         '}',
       ].join('\n')),
@@ -89,29 +91,46 @@ function aplicarOclusao(material, uniforms) {
 }
 
 function criarOclusao(THREE) {
-  const textura = new THREE.DataTexture(new Uint16Array(4), 2, 2, THREE.RedFormat, THREE.HalfFloatType);
-  textura.magFilter = textura.minFilter = THREE.LinearFilter;
+  // Profundidade em 16 bits (2 bytes por pixel: baixo, alto) enviada crua numa textura RG8.
+  // É o formato mais compatível entre celulares; o shader recompõe os 16 bits.
+  const nova = (dados, w, h) => {
+    const t = new THREE.DataTexture(dados, w, h, THREE.RGFormat, THREE.UnsignedByteType);
+    t.magFilter = t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    t.unpackAlignment = 1;
+    return t;
+  };
   const uniforms = {
-    uOccTex: { value: textura },
+    uOccTex: { value: nova(new Uint8Array(8), 2, 2) },
     uOccUv: { value: new THREE.Matrix4() },
     uOccTela: { value: new THREE.Vector2(1, 1) },
+    uOccEscala: { value: 0.001 },
     uOccAtiva: { value: 0 },
   };
-  let meia = null;
+  let bytes = null;
   return {
     uniforms,
     // Atualiza a textura com o mapa de profundidade do quadro (XRCPUDepthInformation)
     atualizar(prof, formato, viewport) {
       const w = prof.width, h = prof.height;
-      const bruto = formato === 'float32' ? new Float32Array(prof.data) : new Uint16Array(prof.data);
-      if (!meia || meia.length !== w * h) {
-        meia = new Uint16Array(w * h);
+      if (!bytes || bytes.length !== w * h * 2) {
+        bytes = new Uint8Array(w * h * 2);
         uniforms.uOccTex.value.dispose();
-        uniforms.uOccTex.value = new THREE.DataTexture(meia, w, h, THREE.RedFormat, THREE.HalfFloatType);
-        uniforms.uOccTex.value.magFilter = uniforms.uOccTex.value.minFilter = THREE.LinearFilter;
+        uniforms.uOccTex.value = nova(bytes, w, h);
       }
-      const k = prof.rawValueToMeters;
-      for (let i = 0; i < meia.length; i++) meia[i] = THREE.DataUtils.toHalfFloat(bruto[i] * k);
+      if (formato === 'float32') {
+        // converte metros (float) para milímetros em 16 bits
+        const f = new Float32Array(prof.data);
+        const k = prof.rawValueToMeters * 1000;
+        for (let i = 0, b = 0; i < f.length; i++, b += 2) {
+          const mm = Math.max(0, Math.min(65535, Math.round(f[i] * k)));
+          bytes[b] = mm & 255; bytes[b + 1] = mm >> 8;
+        }
+        uniforms.uOccEscala.value = 0.001;
+      } else {
+        bytes.set(new Uint8Array(prof.data, 0, bytes.length));
+        uniforms.uOccEscala.value = prof.rawValueToMeters;
+      }
       uniforms.uOccTex.value.needsUpdate = true;
       uniforms.uOccUv.value.fromArray(prof.normDepthBufferFromNormView.matrix);
       uniforms.uOccTela.value.set(viewport.z, viewport.w);
@@ -147,9 +166,12 @@ function montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao) {
     prato.traverse((o) => {
       if (!o.isMesh) return;
       // materiais são clonados para não mexer no modelo em cache
+      o.userData.materialSemOclusao = o.material;
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
       for (const m of [].concat(o.material)) if (!vistos.has(m)) { vistos.add(m); aplicarOclusao(m, oclusao.uniforms); }
     });
+    sombra.userData.materialSemOclusao = sombra.material;
+    sombra.material = sombra.material.clone();
     aplicarOclusao(sombra.material, oclusao.uniforms);
   }
   const ancora = new THREE.Group();        // posição na mesa
@@ -172,7 +194,21 @@ function montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao) {
   mira.visible = false;
   cena.add(mira);
 
-  return { cena, pmrem, ancora, giro, mira, tamanho };
+  // Volta aos materiais normais (usado se a oclusão der erro neste aparelho)
+  const removerOclusao = () => {
+    giro.traverse((o) => {
+      if (o.userData.materialSemOclusao) { o.material = o.userData.materialSemOclusao; delete o.userData.materialSemOclusao; }
+    });
+  };
+  return { cena, pmrem, ancora, giro, mira, tamanho, removerOclusao };
+}
+
+// Último erro da AR (a página mostra na ficha do prato para facilitar o diagnóstico)
+let ultimoErro = '';
+function registrarErro(onde, erro) {
+  const msg = `${onde}: ${(erro && (erro.message || erro.name)) || erro}`;
+  ultimoErro = msg;
+  console.error('AR', msg, erro);
 }
 
 const suporte = (navigator.xr && navigator.xr.isSessionSupported)
@@ -181,6 +217,8 @@ const suporte = (navigator.xr && navigator.xr.isSessionSupported)
 
 // Abre a AR. Precisa ser chamada direto do toque no botão (exigência do navegador).
 async function iniciar(urlModelo, aoSair) {
+  ultimoErro = '';
+  const semOclusao = /[?&]semoclusao\b/.test(location.search);
   const ui = document.getElementById('ar-ui');
   const dica = document.getElementById('ar-dica');
   const btnMover = document.getElementById('ar-mover');
@@ -191,12 +229,13 @@ async function iniciar(urlModelo, aoSair) {
   try {
     sessao = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay', 'anchors', 'local', 'depth-sensing'],
+      optionalFeatures: semOclusao ? ['dom-overlay', 'anchors', 'local'] : ['dom-overlay', 'anchors', 'local', 'depth-sensing'],
       domOverlay: { root: ui },
       depthSensing: { usagePreference: ['cpu-optimized'], dataFormatPreference: ['luminance-alpha', 'float32'] },
     });
   } catch (erro) {
     ui.hidden = true;
+    registrarErro('abrir sessão', erro);
     throw erro;
   }
 
@@ -266,10 +305,21 @@ async function iniciar(urlModelo, aoSair) {
 
     const usaProfundidade = Array.isArray(sessao.enabledFeatures) && sessao.enabledFeatures.includes('depth-sensing')
       && sessao.depthUsage === 'cpu-optimized';
-    const oclusao = usaProfundidade ? criarOclusao(THREE) : null;
+    let oclusao = usaProfundidade ? criarOclusao(THREE) : null;
     const montagem = montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao);
     const { cena, ancora, mira } = montagem;
     pmrem = montagem.pmrem;
+    const desligarOclusao = (onde, erro) => {
+      if (!oclusao) return;
+      registrarErro(onde, erro);
+      oclusao = null;
+      montagem.removerOclusao();
+    };
+    // Se o shader da oclusão não compilar neste celular, segue sem oclusão
+    renderer.debug.onShaderError = (gl, programa, vs, fs) => {
+      desligarOclusao('shader', gl.getProgramInfoLog(programa) || gl.getShaderInfoLog(fs) || 'falha ao compilar');
+    };
+    renderer.domElement.addEventListener('webglcontextlost', () => registrarErro('webgl', 'contexto perdido'));
     giro = montagem.giro;
     ancora.visible = false;
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 30);
@@ -280,26 +330,30 @@ async function iniciar(urlModelo, aoSair) {
     const espacoVisor = await sessao.requestReferenceSpace('viewer');
     fonteHit = await sessao.requestHitTestSource({ space: espacoVisor });
 
-    let ultimoHit = null;
+    let ultimaPose = null; // cópia da posição da mira no último quadro (válida fora do quadro)
 
-    sessao.addEventListener('select', () => {
-      if (colocado || !ultimoHit) return;
-      const ref = renderer.xr.getReferenceSpace();
-      const pose = ultimoHit.getPose(ref);
-      if (!pose) return;
-      ancora.position.setFromMatrixPosition(matriz.fromArray(pose.transform.matrix));
-      // vira a frente do prato para quem está segurando o celular
-      posCamera.setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
-      giro.rotation.y = Math.atan2(posCamera.x - ancora.position.x, posCamera.z - ancora.position.z);
-      ancora.visible = true;
-      mira.visible = false;
-      colocado = true;
-      btnMover.hidden = false;
-      mostrar('Tamanho real · arraste para girar');
-      if (ultimoHit.createAnchor) {
-        ultimoHit.createAnchor().then((a) => {
-          if (colocado) ancoraXR = a; else a.delete();
-        }).catch(() => { /* sem âncora: fica na posição do toque */ });
+    sessao.addEventListener('select', (evento) => {
+      if (colocado || !ultimaPose) return;
+      try {
+        ancora.position.setFromMatrixPosition(matriz.fromArray(ultimaPose.matriz));
+        // vira a frente do prato para quem está segurando o celular
+        posCamera.setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
+        giro.rotation.y = Math.atan2(posCamera.x - ancora.position.x, posCamera.z - ancora.position.z);
+        ancora.visible = true;
+        mira.visible = false;
+        colocado = true;
+        btnMover.hidden = false;
+        mostrar('Tamanho real · arraste para girar');
+        // âncora do ARCore: mantém o prato preso à mesa mesmo se o rastreamento se ajustar
+        const quadro = evento.frame;
+        if (quadro && quadro.createAnchor && window.XRRigidTransform) {
+          const { p, q } = ultimaPose;
+          quadro.createAnchor(new XRRigidTransform(p, q), renderer.xr.getReferenceSpace())
+            .then((a) => { if (colocado) ancoraXR = a; else a.delete(); })
+            .catch(() => { /* sem âncora: fica na posição do toque */ });
+        }
+      } catch (erro) {
+        registrarErro('colocar', erro);
       }
     });
 
@@ -317,13 +371,16 @@ async function iniciar(urlModelo, aoSair) {
       if (!frame) return;
       const ref = renderer.xr.getReferenceSpace();
       if (oclusao && colocado) {
-        const poseVisor = frame.getViewerPose(ref);
-        const camXR = renderer.xr.getCamera();
-        const vp = camXR.cameras && camXR.cameras[0] && camXR.cameras[0].viewport;
-        let prof = null;
-        try { prof = poseVisor && frame.getDepthInformation(poseVisor.views[0]); } catch (e) { prof = null; }
-        if (prof && vp && vp.z > 0) oclusao.atualizar(prof, sessao.depthDataFormat, vp);
-        else oclusao.desligar();
+        try {
+          const poseVisor = frame.getViewerPose(ref);
+          const camXR = renderer.xr.getCamera();
+          const vp = camXR.cameras && camXR.cameras[0] && camXR.cameras[0].viewport;
+          const prof = poseVisor ? frame.getDepthInformation(poseVisor.views[0]) : null;
+          if (prof && vp && vp.z > 0) oclusao.atualizar(prof, sessao.depthDataFormat, vp);
+          else oclusao.desligar();
+        } catch (erro) {
+          desligarOclusao('profundidade', erro);
+        }
       }
       if (!colocado) {
         let achou = null;
@@ -332,21 +389,31 @@ async function iniciar(urlModelo, aoSair) {
           // só superfícies horizontais viradas para cima (mesa, balcão)
           if (pose && pose.transform.matrix[5] > 0.75) {
             mira.matrix.fromArray(pose.transform.matrix);
-            achou = hit;
+            const { position: pp, orientation: oo } = pose.transform;
+            achou = {
+              matriz: Float32Array.from(pose.transform.matrix),
+              p: { x: pp.x, y: pp.y, z: pp.z },
+              q: { x: oo.x, y: oo.y, z: oo.z, w: oo.w },
+            };
             break;
           }
         }
-        ultimoHit = achou;
+        ultimaPose = achou;
         mira.visible = !!achou;
         mostrar(achou ? 'Toque na tela para pôr o prato aqui' : 'Aponte a câmera para a mesa e mova o celular devagar');
       } else if (ancoraXR && frame.trackedAnchors && frame.trackedAnchors.has(ancoraXR)) {
         const pose = frame.getPose(ancoraXR.anchorSpace, ref);
         if (pose) ancora.position.setFromMatrixPosition(matriz.fromArray(pose.transform.matrix));
       }
-      renderer.render(cena, camera);
+      try {
+        renderer.render(cena, camera);
+      } catch (erro) {
+        if (oclusao) desligarOclusao('desenho', erro);
+        else registrarErro('desenho', erro);
+      }
     });
   } catch (erro) {
-    console.error('AR:', erro);
+    registrarErro('preparar', erro);
     encerrar();
     throw erro;
   }
@@ -356,6 +423,7 @@ window.KardapAR = {
   suporte,
   iniciar,
   preCarregar: (url) => { carregarModelo(url).catch(() => {}); },
+  ultimoErro: () => ultimoErro,
   _montarCena: montarCena,      // usados só nos testes
   _criarOclusao: criarOclusao,
   _carregarLibs: carregarLibs,
