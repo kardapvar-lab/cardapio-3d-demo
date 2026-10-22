@@ -6,6 +6,8 @@
 //   3. Um toque na tela fixa o prato ali (com âncora do ARCore, quando disponível).
 //   4. Arrastar o dedo gira o prato. O tamanho é sempre o real: não há zoom.
 //   5. "Mudar de lugar" volta para a mira.
+//   6. Oclusão: em celulares com sensor/estimativa de profundidade (ARCore Depth), o que estiver
+//      na frente do prato no mundo real (a mão, um copo) esconde a parte do prato que fica atrás.
 //
 // No iPhone não existe WebXR: a página usa o Quick Look da Apple (via <model-viewer>).
 
@@ -56,8 +58,71 @@ function criarSombra(THREE, largura, profundidade) {
   return sombra;
 }
 
+// Oclusão por profundidade: injeta no shader de cada material um teste que descarta o pixel
+// do prato quando a profundidade real (medida pelo celular) está mais perto da câmera que o prato.
+function aplicarOclusao(material, uniforms) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = 'varying float vOccDepth;\n' + shader.vertexShader.replace(
+      '#include <project_vertex>',
+      '#include <project_vertex>\n  vOccDepth = -mvPosition.z;'
+    );
+    shader.fragmentShader = [
+      'varying float vOccDepth;',
+      'uniform sampler2D uOccTex;',
+      'uniform mat4 uOccUv;',
+      'uniform vec2 uOccTela;',
+      'uniform float uOccAtiva;',
+      shader.fragmentShader.replace('#include <dithering_fragment>', [
+        '#include <dithering_fragment>',
+        'if (uOccAtiva > 0.5) {',
+        '  vec2 nv = vec2(gl_FragCoord.x / uOccTela.x, 1.0 - gl_FragCoord.y / uOccTela.y);',
+        '  vec2 duv = (uOccUv * vec4(nv, 0.0, 1.0)).xy;',
+        '  float real = texture2D(uOccTex, duv).r;',
+        '  if (real > 0.0 && real < vOccDepth - 0.025) discard;',
+        '}',
+      ].join('\n')),
+    ].join('\n');
+  };
+  material.customProgramCacheKey = () => 'kardap-oclusao';
+  material.needsUpdate = true;
+}
+
+function criarOclusao(THREE) {
+  const textura = new THREE.DataTexture(new Uint16Array(4), 2, 2, THREE.RedFormat, THREE.HalfFloatType);
+  textura.magFilter = textura.minFilter = THREE.LinearFilter;
+  const uniforms = {
+    uOccTex: { value: textura },
+    uOccUv: { value: new THREE.Matrix4() },
+    uOccTela: { value: new THREE.Vector2(1, 1) },
+    uOccAtiva: { value: 0 },
+  };
+  let meia = null;
+  return {
+    uniforms,
+    // Atualiza a textura com o mapa de profundidade do quadro (XRCPUDepthInformation)
+    atualizar(prof, formato, viewport) {
+      const w = prof.width, h = prof.height;
+      const bruto = formato === 'float32' ? new Float32Array(prof.data) : new Uint16Array(prof.data);
+      if (!meia || meia.length !== w * h) {
+        meia = new Uint16Array(w * h);
+        uniforms.uOccTex.value.dispose();
+        uniforms.uOccTex.value = new THREE.DataTexture(meia, w, h, THREE.RedFormat, THREE.HalfFloatType);
+        uniforms.uOccTex.value.magFilter = uniforms.uOccTex.value.minFilter = THREE.LinearFilter;
+      }
+      const k = prof.rawValueToMeters;
+      for (let i = 0; i < meia.length; i++) meia[i] = THREE.DataUtils.toHalfFloat(bruto[i] * k);
+      uniforms.uOccTex.value.needsUpdate = true;
+      uniforms.uOccUv.value.fromArray(prof.normDepthBufferFromNormView.matrix);
+      uniforms.uOccTela.value.set(viewport.z, viewport.w);
+      uniforms.uOccAtiva.value = 1;
+    },
+    desligar() { uniforms.uOccAtiva.value = 0; },
+  };
+}
+
 // Monta a cena: luzes, o prato apoiado em y = 0 e a sombra. Também usada nos testes.
-function montarCena(THREE, RoomEnvironment, renderer, gltf) {
+function montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao) {
   const cena = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   cena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -75,7 +140,18 @@ function montarCena(THREE, RoomEnvironment, renderer, gltf) {
 
   const giro = new THREE.Group();          // gira com o dedo
   giro.add(prato);
-  giro.add(criarSombra(THREE, tamanho.x, tamanho.z));
+  const sombra = criarSombra(THREE, tamanho.x, tamanho.z);
+  giro.add(sombra);
+  if (oclusao) {
+    const vistos = new Set();
+    prato.traverse((o) => {
+      if (!o.isMesh) return;
+      // materiais são clonados para não mexer no modelo em cache
+      o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
+      for (const m of [].concat(o.material)) if (!vistos.has(m)) { vistos.add(m); aplicarOclusao(m, oclusao.uniforms); }
+    });
+    aplicarOclusao(sombra.material, oclusao.uniforms);
+  }
   const ancora = new THREE.Group();        // posição na mesa
   ancora.add(giro);
   cena.add(ancora);
@@ -115,8 +191,9 @@ async function iniciar(urlModelo, aoSair) {
   try {
     sessao = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay', 'anchors', 'local'],
+      optionalFeatures: ['dom-overlay', 'anchors', 'local', 'depth-sensing'],
       domOverlay: { root: ui },
+      depthSensing: { usagePreference: ['cpu-optimized'], dataFormatPreference: ['luminance-alpha', 'float32'] },
     });
   } catch (erro) {
     ui.hidden = true;
@@ -170,6 +247,14 @@ async function iniciar(urlModelo, aoSair) {
   try {
     const [{ THREE, RoomEnvironment }, gltf] = await Promise.all([carregarLibs(), carregarModelo(urlModelo)]);
 
+    if (window.XRWebGLBinding && XRWebGLBinding.prototype.getDepthInformation && !XRWebGLBinding.prototype.__kardap) {
+      const original = XRWebGLBinding.prototype.getDepthInformation;
+      XRWebGLBinding.prototype.getDepthInformation = function (view) {
+        try { return original.call(this, view); } catch (e) { return null; }
+      };
+      XRWebGLBinding.prototype.__kardap = true;
+    }
+
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -179,7 +264,10 @@ async function iniciar(urlModelo, aoSair) {
     renderer.domElement.style.cssText = 'position:fixed;inset:0;pointer-events:none;';
     document.body.appendChild(renderer.domElement);
 
-    const montagem = montarCena(THREE, RoomEnvironment, renderer, gltf);
+    const usaProfundidade = Array.isArray(sessao.enabledFeatures) && sessao.enabledFeatures.includes('depth-sensing')
+      && sessao.depthUsage === 'cpu-optimized';
+    const oclusao = usaProfundidade ? criarOclusao(THREE) : null;
+    const montagem = montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao);
     const { cena, ancora, mira } = montagem;
     pmrem = montagem.pmrem;
     giro = montagem.giro;
@@ -228,6 +316,15 @@ async function iniciar(urlModelo, aoSair) {
     renderer.setAnimationLoop((tempo, frame) => {
       if (!frame) return;
       const ref = renderer.xr.getReferenceSpace();
+      if (oclusao && colocado) {
+        const poseVisor = frame.getViewerPose(ref);
+        const camXR = renderer.xr.getCamera();
+        const vp = camXR.cameras && camXR.cameras[0] && camXR.cameras[0].viewport;
+        let prof = null;
+        try { prof = poseVisor && frame.getDepthInformation(poseVisor.views[0]); } catch (e) { prof = null; }
+        if (prof && vp && vp.z > 0) oclusao.atualizar(prof, sessao.depthDataFormat, vp);
+        else oclusao.desligar();
+      }
       if (!colocado) {
         let achou = null;
         for (const hit of frame.getHitTestResults(fonteHit)) {
@@ -259,7 +356,8 @@ window.KardapAR = {
   suporte,
   iniciar,
   preCarregar: (url) => { carregarModelo(url).catch(() => {}); },
-  _montarCena: montarCena,      // usado só nos testes
+  _montarCena: montarCena,      // usados só nos testes
+  _criarOclusao: criarOclusao,
   _carregarLibs: carregarLibs,
   _carregarModelo: carregarModelo,
 };
