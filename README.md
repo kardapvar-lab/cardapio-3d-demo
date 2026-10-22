@@ -7,8 +7,7 @@ Demo de cardápio digital com pratos em 3D e realidade aumentada (AR) em tamanho
 
 ```
 index.html              página do cardápio (HTML + CSS + JS, sem build)
-ar-mesa.js              realidade aumentada no Android (WebXR + three.js), versão estável
-ar-mesa-teste.js        versão de teste da AR: oclusão + diário (só com ?oclusao ou ?debug)
+ar-mesa.js              realidade aumentada no Android (WebXR + three.js)
 teste-ar.html           página de diagnóstico de AR
 produtos.json           dados do restaurante, categorias e produtos
 versao.json             versão publicada (a página se recarrega sozinha quando muda)
@@ -25,8 +24,10 @@ ferramentas/versao.py   carimba uma versão nova antes de publicar
   - Android: AR própria em `ar-mesa.js` (WebXR). Uma mira do tamanho real do prato aparece na mesa;
     um toque fixa o prato ali (âncora do ARCore), arrastar gira, e não há zoom.
   - iPhone: Quick Look da Apple, pelo `<model-viewer>` com `ar-scale="fixed"`.
+  - Antes de abrir a câmera, os shaders e o modelo são "aquecidos" na placa de vídeo; sem isso,
+    celulares mais antigos travavam no primeiro desenho do prato (no toque) e o Android fechava a câmera.
   - Testes: `?oclusao` liga a oclusão por profundidade (experimental); `?debug` mostra o diário da AR
-    ao sair. Se a AR travar, o diário aparece sozinho na ficha do prato.
+    na tela da câmera. Se a AR travar, o diário aparece sozinho na ficha do prato.
 - **Link direto para um prato:** `.../#bitoque` abre a ficha dele. Serve para QR code por prato.
 
 ## Publicar uma atualização

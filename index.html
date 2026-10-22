@@ -9,13 +9,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Cormorant+Garamond:wght@500&family=IBM+Plex+Mono:wght@500&display=swap">
 <script type="module">
-  // AR estável por padrão; a versão de teste (oclusão + diagnóstico) só com ?oclusao ou ?debug
+  // Oclusão (?oclusao) e diário na câmera (?debug) são opções de teste do mesmo código
   const teste = /[?&](oclusao|debug)\b/.test(location.search);
   // ?v= com a versão publicada: o Chrome não reaproveita um arquivo de AR antigo do cache
   const v = window.KARDAP_VERSAO || Date.now();
-  import((teste ? './ar-mesa-teste.js' : './ar-mesa.js') + '?v=' + v);
+  import('./ar-mesa.js?v=' + v);
   const etiqueta = document.getElementById('ar-versao');
-  if (etiqueta) etiqueta.textContent = (teste ? 'teste' : 'estável') + ' · ' + String(v).slice(-6);
+  if (etiqueta) etiqueta.textContent = (teste ? 'teste' : 'normal') + ' · ' + String(v).slice(-6);
 </script>
 <style>
 /* Layout: estilo de menu de delivery — banner de ponta a ponta, títulos de seção em maiúsculas,
@@ -302,7 +302,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-132510';
+  const VERSAO = '20261022-133611';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
