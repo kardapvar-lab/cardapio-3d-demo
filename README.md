@@ -24,6 +24,8 @@ ferramentas/versao.py   carimba uma versão nova antes de publicar
   - Android: AR própria em `ar-mesa.js` (WebXR). Uma mira do tamanho real do prato aparece na mesa;
     um toque fixa o prato ali (âncora do ARCore), arrastar gira, e não há zoom.
   - iPhone: Quick Look da Apple, pelo `<model-viewer>` com `ar-scale="fixed"`.
+  - Testes: `?oclusao` liga a oclusão por profundidade (experimental); `?debug` mostra o diário da AR
+    ao sair. Se a AR travar, o diário aparece sozinho na ficha do prato.
 - **Link direto para um prato:** `.../#bitoque` abre a ficha dele. Serve para QR code por prato.
 
 ## Publicar uma atualização

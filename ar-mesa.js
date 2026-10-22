@@ -203,12 +203,35 @@ function montarCena(THREE, RoomEnvironment, renderer, gltf, oclusao) {
   return { cena, pmrem, ancora, giro, mira, tamanho, removerOclusao };
 }
 
-// Último erro da AR (a página mostra na ficha do prato para facilitar o diagnóstico)
-let ultimoErro = '';
+// Diário da AR: registra cada passo (e cada erro) para diagnóstico.
+// Fica guardado no aparelho, então sobrevive mesmo se a câmera fechar de forma brusca.
+const CHAVE_DIARIO = 'kardap-ar-diario';
+let diario = [];
+try { diario = JSON.parse(localStorage.getItem(CHAVE_DIARIO) || '[]'); } catch (e) { diario = []; }
+let houveErro = false;
+function anotar(texto) {
+  const agora = new Date();
+  const hora = agora.toTimeString().slice(0, 8);
+  diario.push(`${hora} ${texto}`);
+  diario = diario.slice(-25);
+  try { localStorage.setItem(CHAVE_DIARIO, JSON.stringify(diario)); } catch (e) { /* sem armazenamento */ }
+}
 function registrarErro(onde, erro) {
-  const msg = `${onde}: ${(erro && (erro.message || erro.name)) || erro}`;
-  ultimoErro = msg;
-  console.error('AR', msg, erro);
+  houveErro = true;
+  anotar(`ERRO ${onde}: ${(erro && (erro.message || erro.name)) || erro}`);
+  console.error('AR', onde, erro);
+}
+let sessaoAtiva = null;
+let ultimoQuadroEm = 0;
+
+// Sessão "travada": a câmera fechou mas o navegador não avisou a página
+async function encerrarTravada() {
+  if (!sessaoAtiva) return;
+  houveErro = true;
+  anotar('sessão travada: a câmera fechou sem avisar a página');
+  const s = sessaoAtiva;
+  sessaoAtiva = null;
+  try { await s.end(); } catch (e) { /* já encerrada */ }
 }
 
 const suporte = (navigator.xr && navigator.xr.isSessionSupported)
@@ -217,8 +240,17 @@ const suporte = (navigator.xr && navigator.xr.isSessionSupported)
 
 // Abre a AR. Precisa ser chamada direto do toque no botão (exigência do navegador).
 async function iniciar(urlModelo, aoSair) {
-  ultimoErro = '';
-  const semOclusao = /[?&]semoclusao\b/.test(location.search);
+  houveErro = false;
+  anotar('———');
+  anotar(`início · ${navigator.userAgent.replace(/^Mozilla\/5.0 /, '').slice(0, 90)}`);
+  const querOclusao = /[?&]oclusao\b/.test(location.search);
+
+  // Se sobrou uma sessão travada de uma tentativa anterior, encerra antes de abrir outra
+  if (sessaoAtiva) {
+    anotar('encerrando sessão anterior que ficou aberta');
+    try { await sessaoAtiva.end(); } catch (e) { /* já encerrada */ }
+    sessaoAtiva = null;
+  }
   const ui = document.getElementById('ar-ui');
   const dica = document.getElementById('ar-dica');
   const btnMover = document.getElementById('ar-mover');
@@ -229,7 +261,7 @@ async function iniciar(urlModelo, aoSair) {
   try {
     sessao = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
-      optionalFeatures: semOclusao ? ['dom-overlay', 'anchors', 'local'] : ['dom-overlay', 'anchors', 'local', 'depth-sensing'],
+      optionalFeatures: querOclusao ? ['dom-overlay', 'anchors', 'local', 'depth-sensing'] : ['dom-overlay', 'anchors', 'local'],
       domOverlay: { root: ui },
       depthSensing: { usagePreference: ['cpu-optimized'], dataFormatPreference: ['luminance-alpha', 'float32'] },
     });
@@ -238,6 +270,17 @@ async function iniciar(urlModelo, aoSair) {
     registrarErro('abrir sessão', erro);
     throw erro;
   }
+  sessaoAtiva = sessao;
+  anotar(`sessão aberta · recursos: ${(sessao.enabledFeatures || []).join(', ') || '?'}`
+    + (sessao.depthUsage ? ` · profundidade: ${sessao.depthUsage}/${sessao.depthDataFormat}` : ''));
+
+  // capta erros soltos enquanto a AR está aberta
+  const aoErroGlobal = (e) => registrarErro('página', e.error || e.message || e.reason || e);
+  window.addEventListener('error', aoErroGlobal);
+  window.addEventListener('unhandledrejection', aoErroGlobal);
+  sessao.addEventListener('visibilitychange', () => anotar(`visibilidade da sessão: ${sessao.visibilityState}`));
+  const aoTelaCheia = () => anotar(`tela cheia: ${document.fullscreenElement ? 'entrou' : 'saiu'}`);
+  document.addEventListener('fullscreenchange', aoTelaCheia);
 
   let textoAtual = '';
   const mostrar = (t) => { if (t !== textoAtual) { textoAtual = t; dica.textContent = t; } };
@@ -250,12 +293,18 @@ async function iniciar(urlModelo, aoSair) {
   let pmrem = null;
 
   const encerrar = () => { try { sessao.end(); } catch (e) { /* já encerrada */ } };
+  let saiuPeloBotao = false;
   const naoSelecionar = (e) => e.preventDefault(); // toques nos botões não colocam o prato
   btnSair.addEventListener('beforexrselect', naoSelecionar);
   btnMover.addEventListener('beforexrselect', naoSelecionar);
-  btnSair.onclick = encerrar;
+  btnSair.onclick = () => { saiuPeloBotao = true; anotar('toque em sair'); encerrar(); };
 
   sessao.addEventListener('end', () => {
+    anotar(saiuPeloBotao ? 'sessão encerrada (botão ×)' : 'sessão encerrada pelo sistema');
+    sessaoAtiva = null;
+    window.removeEventListener('error', aoErroGlobal);
+    window.removeEventListener('unhandledrejection', aoErroGlobal);
+    document.removeEventListener('fullscreenchange', aoTelaCheia);
     if (renderer) renderer.setAnimationLoop(null);
     try { fonteHit && fonteHit.cancel(); } catch (e) { /* ignora */ }
     try { ancoraXR && ancoraXR.delete(); } catch (e) { /* ignora */ }
@@ -267,7 +316,7 @@ async function iniciar(urlModelo, aoSair) {
     btnMover.removeEventListener('beforexrselect', naoSelecionar);
     ui.hidden = true;
     btnMover.hidden = true;
-    if (aoSair) aoSair();
+    if (aoSair) aoSair({ houveErro, saiuPeloBotao });
   });
 
   let xAnterior = null;
@@ -285,6 +334,7 @@ async function iniciar(urlModelo, aoSair) {
 
   try {
     const [{ THREE, RoomEnvironment }, gltf] = await Promise.all([carregarLibs(), carregarModelo(urlModelo)]);
+    anotar('modelo e bibliotecas carregados');
 
     if (window.XRWebGLBinding && XRWebGLBinding.prototype.getDepthInformation && !XRWebGLBinding.prototype.__kardap) {
       const original = XRWebGLBinding.prototype.getDepthInformation;
@@ -319,7 +369,7 @@ async function iniciar(urlModelo, aoSair) {
     renderer.debug.onShaderError = (gl, programa, vs, fs) => {
       desligarOclusao('shader', gl.getProgramInfoLog(programa) || gl.getShaderInfoLog(fs) || 'falha ao compilar');
     };
-    renderer.domElement.addEventListener('webglcontextlost', () => registrarErro('webgl', 'contexto perdido'));
+    renderer.domElement.addEventListener('webglcontextlost', () => registrarErro('webgl', 'contexto gráfico perdido'));
     giro = montagem.giro;
     ancora.visible = false;
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 30);
@@ -329,11 +379,17 @@ async function iniciar(urlModelo, aoSair) {
     await renderer.xr.setSession(sessao);
     const espacoVisor = await sessao.requestReferenceSpace('viewer');
     fonteHit = await sessao.requestHitTestSource({ space: espacoVisor });
+    anotar(`pronto para mirar · oclusão ${oclusao ? 'ligada' : 'desligada'}`);
+    let quadros = 0;
+    let achouMesaUmaVez = false;
+    let leuProfundidade = false;
+    let quadrosAposColocar = 0;
 
     let ultimaPose = null; // cópia da posição da mira no último quadro (válida fora do quadro)
 
     sessao.addEventListener('select', (evento) => {
       if (colocado || !ultimaPose) return;
+      anotar('toque: colocando o prato');
       try {
         ancora.position.setFromMatrixPosition(matriz.fromArray(ultimaPose.matriz));
         // vira a frente do prato para quem está segurando o celular
@@ -349,16 +405,19 @@ async function iniciar(urlModelo, aoSair) {
         if (quadro && quadro.createAnchor && window.XRRigidTransform) {
           const { p, q } = ultimaPose;
           quadro.createAnchor(new XRRigidTransform(p, q), renderer.xr.getReferenceSpace())
-            .then((a) => { if (colocado) ancoraXR = a; else a.delete(); })
-            .catch(() => { /* sem âncora: fica na posição do toque */ });
+            .then((a) => { anotar('âncora criada'); if (colocado) ancoraXR = a; else a.delete(); })
+            .catch((e) => anotar(`sem âncora (${(e && e.message) || e})`));
         }
       } catch (erro) {
         registrarErro('colocar', erro);
       }
+      anotar('prato colocado');
     });
 
     btnMover.onclick = () => {
+      anotar('mudar de lugar');
       colocado = false;
+      quadrosAposColocar = 0;
       try { ancoraXR && ancoraXR.delete(); } catch (e) { /* ignora */ }
       ancoraXR = null;
       ancora.visible = false;
@@ -370,13 +429,24 @@ async function iniciar(urlModelo, aoSair) {
     renderer.setAnimationLoop((tempo, frame) => {
       if (!frame) return;
       const ref = renderer.xr.getReferenceSpace();
+      quadros++;
+      ultimoQuadroEm = performance.now();
+      if (quadros === 1) anotar('primeiro quadro da câmera');
+      if (colocado) {
+        quadrosAposColocar++;
+        if (quadrosAposColocar === 1) anotar('primeiro quadro com o prato');
+        if (quadrosAposColocar === 60) anotar('60 quadros com o prato (ok)');
+      }
       if (oclusao && colocado) {
         try {
           const poseVisor = frame.getViewerPose(ref);
           const camXR = renderer.xr.getCamera();
           const vp = camXR.cameras && camXR.cameras[0] && camXR.cameras[0].viewport;
           const prof = poseVisor ? frame.getDepthInformation(poseVisor.views[0]) : null;
-          if (prof && vp && vp.z > 0) oclusao.atualizar(prof, sessao.depthDataFormat, vp);
+          if (prof && vp && vp.z > 0) {
+            if (!leuProfundidade) { leuProfundidade = true; anotar(`profundidade lida · ${prof.width}x${prof.height}`); }
+            oclusao.atualizar(prof, sessao.depthDataFormat, vp);
+          }
           else oclusao.desligar();
         } catch (erro) {
           desligarOclusao('profundidade', erro);
@@ -400,6 +470,7 @@ async function iniciar(urlModelo, aoSair) {
         }
         ultimaPose = achou;
         mira.visible = !!achou;
+        if (achou && !achouMesaUmaVez) { achouMesaUmaVez = true; anotar('superfície encontrada'); }
         mostrar(achou ? 'Toque na tela para pôr o prato aqui' : 'Aponte a câmera para a mesa e mova o celular devagar');
       } else if (ancoraXR && frame.trackedAnchors && frame.trackedAnchors.has(ancoraXR)) {
         const pose = frame.getPose(ancoraXR.anchorSpace, ref);
@@ -423,7 +494,10 @@ window.KardapAR = {
   suporte,
   iniciar,
   preCarregar: (url) => { carregarModelo(url).catch(() => {}); },
-  ultimoErro: () => ultimoErro,
+  diario: () => diario.slice(),
+  estado: () => ({ ativa: !!sessaoAtiva, msDesdeQuadro: ultimoQuadroEm ? performance.now() - ultimoQuadroEm : Infinity }),
+  encerrarTravada,
+  houveErro: () => houveErro,
   _montarCena: montarCena,      // usados só nos testes
   _criarOclusao: criarOclusao,
   _carregarLibs: carregarLibs,

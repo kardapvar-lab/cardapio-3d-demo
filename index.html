@@ -151,6 +151,10 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 }
 .btn-ar svg { width: 18px; height: 18px; }
 .btn-ar[aria-busy="true"] { opacity: .75; }
+.ar-erro.diario {
+  white-space: pre-wrap; text-align: left; font: 11px/1.45 var(--font-mono); max-height: calc(100% - 100px);
+  overflow-y: auto; top: 62px; bottom: auto;
+}
 .ar-erro {
   position: absolute; z-index: 5; left: 12px; right: 12px; bottom: 76px; margin: 0; text-align: center; overflow-wrap: anywhere; user-select: text;
   background: var(--surface); color: var(--ink); font-size: 13px; padding: 8px 12px; border-radius: 10px;
@@ -280,7 +284,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-105458';
+  const VERSAO = '20261022-115824';
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -392,22 +396,36 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     clearTimeout(timerErro);
     timerErro = setTimeout(() => { arErro.hidden = true; }, ms);
   }
-  // Ao sair da AR, se algo deu errado lá dentro, mostra o detalhe técnico (ajuda no diagnóstico)
-  function aoSairDaAR() {
+  // Diagnóstico: mostra o diário da AR (os últimos passos registrados) na ficha do prato
+  const modoDebug = /[?&]debug\b/.test(location.search);
+  function mostrarDiario(titulo) {
+    const linhas = (window.KardapAR && window.KardapAR.diario && window.KardapAR.diario()) || [];
+    arErro.classList.add('diario');
+    avisarErroAR(titulo + '\n\n' + linhas.slice(-14).join('\n'), 90000);
+  }
+  function aoSairDaAR(info) {
     btnAR.removeAttribute('aria-busy');
-    const erro = window.KardapAR && window.KardapAR.ultimoErro && window.KardapAR.ultimoErro();
-    if (erro) avisarErroAR('Detalhe técnico da AR: ' + erro, 20000);
+    if ((info && info.houveErro) || modoDebug) mostrarDiario('Diagnóstico da AR (mande um print):');
   }
 
   btnAR.addEventListener('click', () => {
     arErro.hidden = true;
+    arErro.classList.remove('diario');
+    const K = window.KardapAR;
+    // A câmera fechou sozinha da última vez e a sessão ficou presa: encerra e mostra o diagnóstico
+    if (K && K.estado && K.estado().ativa) {
+      K.encerrarTravada().finally(() => {
+        btnAR.removeAttribute('aria-busy');
+        mostrarDiario('A AR anterior travou. Mande um print disto e toque de novo para tentar outra vez.');
+      });
+      return;
+    }
     if (temWebXR && window.KardapAR && modeloAtual) {
       btnAR.setAttribute('aria-busy', 'true');
       window.KardapAR.iniciar(modeloAtual, aoSairDaAR)
         .catch(() => {
           btnAR.removeAttribute('aria-busy');
-          const erro = window.KardapAR.ultimoErro && window.KardapAR.ultimoErro();
-          avisarErroAR('Não foi possível abrir a AR.' + (erro ? ' Detalhe: ' + erro : ' Confira a permissão da câmera e tente de novo.'), 20000);
+          mostrarDiario('Não foi possível abrir a AR. Confira a permissão da câmera; se continuar, mande um print disto:');
         });
     } else if (temQuickLook) {
       viewer.activateAR();
