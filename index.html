@@ -9,7 +9,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Cormorant+Garamond:wght@500&family=IBM+Plex+Mono:wght@500&display=swap">
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
-<script type="module" src="ar-mesa.js"></script>
+<script type="module">
+  // AR estável por padrão; a versão de teste (oclusão + diagnóstico) só com ?oclusao ou ?debug
+  const teste = /[?&](oclusao|debug)\b/.test(location.search);
+  import(teste ? './ar-mesa-teste.js' : './ar-mesa.js');
+</script>
 <style>
 /* Layout: estilo de menu de delivery — banner de ponta a ponta, títulos de seção em maiúsculas,
    cada prato numa linha com texto à esquerda e miniatura 3D à direita, separados por linhas finas. */
@@ -290,7 +294,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-131052';
+  const VERSAO = '20261022-131418';
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))

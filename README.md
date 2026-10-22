@@ -7,7 +7,8 @@ Demo de cardápio digital com pratos em 3D e realidade aumentada (AR) em tamanho
 
 ```
 index.html              página do cardápio (HTML + CSS + JS, sem build)
-ar-mesa.js              realidade aumentada no Android (WebXR + three.js)
+ar-mesa.js              realidade aumentada no Android (WebXR + three.js), versão estável
+ar-mesa-teste.js        versão de teste da AR: oclusão + diário (só com ?oclusao ou ?debug)
 teste-ar.html           página de diagnóstico de AR
 produtos.json           dados do restaurante, categorias e produtos
 versao.json             versão publicada (a página se recarrega sozinha quando muda)
