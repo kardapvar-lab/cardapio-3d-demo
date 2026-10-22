@@ -1,0 +1,81 @@
+{
+  "restaurante": {
+    "nome": "Tasca do Largo",
+    "subtitulo": "Cozinha portuguesa e clássicos da casa",
+    "moeda": "EUR"
+  },
+  "categorias": [
+    { "id": "pratos", "nome": "Pratos" },
+    { "id": "pizzas", "nome": "Pizzas" },
+    { "id": "sobremesas", "nome": "Sobremesas" }
+  ],
+  "produtos": [
+    {
+      "id": "bitoque",
+      "nome": "Bitoque da Casa",
+      "categoria": "pratos",
+      "descricao": "Bife da vazia grelhado, ovo estrelado, batata frita caseira e salada da horta.",
+      "preco": 12.5,
+      "modelo": "modelos/bitoque.glb",
+      "medida": "Prato Ø 29 cm",
+      "peso_g": 380,
+      "kcal": 790,
+      "ingredientes": ["Bife da vazia", "Ovo", "Batata", "Alface", "Tomate", "Azeite", "Alho"],
+      "alergenos": ["Ovo"],
+      "destaque": "Mais pedido"
+    },
+    {
+      "id": "hamburguer",
+      "nome": "Hambúrguer Clássico",
+      "categoria": "pratos",
+      "descricao": "Novilho 180 g, cheddar, alface, tomate e pão brioche com sésamo. Acompanha batata frita.",
+      "preco": 11.0,
+      "modelo": "modelos/hamburguer.glb",
+      "medida": "Hambúrguer Ø 11 cm · altura 9 cm",
+      "peso_g": 420,
+      "kcal": 950,
+      "ingredientes": ["Carne de novilho", "Queijo cheddar", "Alface", "Tomate", "Pão brioche", "Batata"],
+      "alergenos": ["Glúten", "Leite", "Ovo", "Sésamo"]
+    },
+    {
+      "id": "pizza-margherita",
+      "nome": "Pizza Margherita",
+      "categoria": "pizzas",
+      "descricao": "Molho de tomate San Marzano, mozzarella fior di latte, manjericão fresco e orégãos.",
+      "preco": 10.5,
+      "modelo": "modelos/pizza-margherita.glb",
+      "medida": "Pizza Ø 30 cm · serve 1 a 2 pessoas",
+      "peso_g": 520,
+      "kcal": 1150,
+      "ingredientes": ["Massa de fermentação lenta", "Tomate", "Mozzarella", "Manjericão", "Orégãos", "Azeite"],
+      "alergenos": ["Glúten", "Leite"]
+    },
+    {
+      "id": "pasteis-de-nata",
+      "nome": "Pastéis de Nata",
+      "categoria": "sobremesas",
+      "descricao": "Dois pastéis acabados de sair do forno, massa folhada estaladiça e canela à parte.",
+      "preco": 3.2,
+      "modelo": "modelos/pasteis-de-nata.glb",
+      "medida": "2 unidades · Ø 7 cm cada",
+      "peso_g": 130,
+      "kcal": 380,
+      "ingredientes": ["Massa folhada", "Gemas de ovo", "Leite", "Açúcar", "Canela"],
+      "alergenos": ["Glúten", "Ovo", "Leite"],
+      "destaque": "Feito na casa"
+    },
+    {
+      "id": "taca-de-gelado",
+      "nome": "Taça de Gelado",
+      "categoria": "sobremesas",
+      "descricao": "Três bolas (chocolate, morango e baunilha) com calda de chocolate, bolacha wafer e cereja.",
+      "preco": 5.5,
+      "modelo": "modelos/taca-de-gelado.glb",
+      "medida": "Taça Ø 11 cm · altura 18 cm",
+      "peso_g": 240,
+      "kcal": 520,
+      "ingredientes": ["Gelado de chocolate", "Gelado de morango", "Gelado de baunilha", "Calda de chocolate", "Bolacha wafer", "Cereja"],
+      "alergenos": ["Leite", "Glúten", "Ovo", "Soja"]
+    }
+  ]
+}

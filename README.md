@@ -1,0 +1,84 @@
+# Menu 3D — demonstração
+
+Demo de cardápio digital com pratos em 3D e realidade aumentada (AR) em tamanho real.
+5 produtos de exemplo, restaurante fictício "Tasca do Largo".
+
+## O que tem aqui
+
+```
+index.html              página do cardápio (HTML + CSS + JS, sem build)
+produtos.json           dados do restaurante, categorias e produtos
+marca/                  logo Kardap (banner, tela de abertura e rodapé)
+modelos/*.glb           modelos 3D dos pratos, em metros (escala real)
+ferramentas/gerar-modelos.mjs   script que gerou os modelos (three.js)
+.nojekyll               faz o GitHub Pages servir os arquivos como estão
+```
+
+- **Visualizador 3D e AR:** [`<model-viewer>`](https://modelviewer.dev) do Google, carregado por CDN.
+- **AR em tamanho real:** `ar-scale="fixed"` impede o cliente de redimensionar o prato na AR.
+  - Android: WebXR / Scene Viewer
+  - iPhone: Quick Look (o model-viewer gera o USDZ a partir do GLB sozinho)
+- **Link direto para um prato:** `.../#bitoque` abre a ficha dele. Serve para QR code por prato.
+
+## Rodar localmente
+
+```bash
+cd cardapio-3d-demo
+python3 -m http.server 8000
+# abra http://localhost:8000
+```
+
+Abrir o `index.html` direto do disco (file://) não funciona: o navegador bloqueia o `fetch` do JSON e dos modelos.
+
+## Testar a AR no celular (GitHub Pages)
+
+AR só funciona em HTTPS, por isso o jeito mais rápido é o GitHub Pages:
+
+1. Crie um repositório `cardapio-3d-demo` e envie esta pasta.
+2. No repositório: Settings → Pages → Branch `main`, pasta `/ (root)` → Save.
+3. Em ~1 minuto fica em `https://<seu-usuario>.github.io/cardapio-3d-demo/`.
+4. Abra no celular, toque num prato e depois em **Ver na minha mesa**.
+   No computador, a ficha mostra um QR code para abrir no celular.
+
+## Formato dos produtos
+
+Cada produto em `produtos.json`:
+
+```json
+{
+  "id": "bitoque",
+  "nome": "Bitoque da Casa",
+  "categoria": "pratos",
+  "descricao": "...",
+  "preco": 12.5,
+  "modelo": "modelos/bitoque.glb",
+  "medida": "Prato Ø 29 cm",
+  "peso_g": 380,
+  "kcal": 790,
+  "ingredientes": ["..."],
+  "alergenos": ["Ovo"],
+  "destaque": "Mais pedido"
+}
+```
+
+Esse é o mesmo formato que a API do backend vai devolver depois (ex.: `GET /restaurantes/{id}/cardapio`).
+Para trocar o JSON estático pela API, basta mudar a URL do `fetch('produtos.json')` no `index.html`.
+
+## Regerar ou mudar os modelos
+
+```bash
+cd ferramentas
+npm init -y && npm install three@0.169.0
+node gerar-modelos.mjs ../modelos
+```
+
+Os modelos de exemplo são feitos com formas geométricas. Para o produto real, o restaurante
+envia um `.glb` (fotogrametria/scan 3D do prato) no cadastro. Regra importante: **1 unidade = 1 metro**,
+senão a AR mostra o prato no tamanho errado.
+
+## Próximos passos (fora deste demo)
+
+- Painel do restaurante: cadastro de produtos e upload do `.glb`
+- Backend (Python) com banco de dados e API do cardápio
+- Vários restaurantes (multi-tenant), cada um com seu endereço/QR
+- Otimização dos modelos (compressão Draco/Meshopt) para carregar rápido no 4G

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menu 3D Tasca do Largo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Cormorant+Garamond:wght@500&family=IBM+Plex+Mono:wght@500&display=swap">
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Layout: estilo de menu de delivery — banner de ponta a ponta, títulos de seção em maiúsculas,
+   cada prato numa linha com texto à esquerda e miniatura 3D à direita, separados por linhas finas. */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --stage: #f4f2f1;
+  --ink: #1c1c1e;
+  --muted: #6e6e73;
+  --line: #ebebee;
+  --accent: #b3121a;      /* vermelho da fita do logo Kardap */
+  --accent-ink: #ffffff;
+  --accent-soft: #fcebe8;
+  --gold: #c8901c;        /* dourado do K */
+  --font-marca: "Cormorant Garamond", Garamond, "Times New Roman", serif;
+  --font: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.gutter {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.coluna { max-width: 720px; margin: 0 auto; }
+
+/* banner: recorte da arte Kardap sobre o mesmo gradiente, para a emenda não aparecer */
+.banner {
+  position: relative; height: 236px; overflow: hidden;
+  background: url("marca/kardap-logo.jpg") center top / auto 100% no-repeat,
+              linear-gradient(180deg, #bc2707 0%, #bd320b 12.5%, #c03c0c 25%, #c4470f 37.5%, #c75111 50%, #ca5b13 62.5%, #cb6614 75%, #ce7016 87.5%, #d17b18 100%);
+}
+.banner::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 18px;
+  background: radial-gradient(circle at 12px 18px, var(--bg) 11px, transparent 12px) 0 0 / 24px 18px repeat-x;
+}
+
+/* tela de abertura: recria a arte da marca em tela cheia */
+.abertura {
+  position: fixed; inset: 0; z-index: 100; cursor: pointer;
+  background: linear-gradient(180deg, #ae0001 0%, #b21003 10%, #b82008 20%, #bc310a 30%, #c0410e 40%, #c65010 50%, #cb6115 60%, #ce7016 70%, #d38219 80%, #d8911d 90%, #dba221 100%);
+  transition: opacity .5s ease, visibility .5s;
+}
+.abertura img {
+  position: absolute; left: 50%; top: 24.84%; height: 51.24%; width: auto; max-width: none;
+  transform: translateX(-50%); animation: surgir .9s ease-out both;
+}
+.abertura.sumir { opacity: 0; visibility: hidden; }
+@keyframes surgir { from { opacity: 0; transform: translateX(-50%) scale(.96); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .abertura, .abertura img { transition: none; animation: none; } }
+
+/* cabeçalho */
+.cabecalho { padding-block: 22px 6px; display: grid; gap: 4px; }
+.cabecalho h1 { font-weight: 500; font-size: 24px; line-height: 1.25; margin: 0; text-wrap: balance; }
+.cabecalho p { margin: 0; color: var(--muted); font-size: 15px; }
+.aviso { padding-block: 18px 22px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.aviso h2 { margin: 0; font-weight: 500; font-size: 18px; line-height: 1.35; text-wrap: balance; }
+.aviso p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+/* abas de categoria */
+nav.cats {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.cats .coluna { display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none; }
+.cats .coluna::-webkit-scrollbar { display: none; }
+.aba {
+  flex: none; background: none; border: 0; padding: 14px 0 12px; cursor: pointer;
+  font: 500 14px/1 var(--font); color: var(--muted); border-bottom: 2px solid transparent;
+}
+.aba[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.aba:focus-visible, .item:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* seções e itens */
+.secao { padding-top: 30px; scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 44px); }
+.secao h2 {
+  margin: 0 0 4px; font-weight: 500; font-size: 22px; line-height: 1.3;
+  text-transform: uppercase; letter-spacing: .01em;
+}
+.item {
+  display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 16px; align-items: start;
+  width: 100%; text-align: left; font: inherit; color: inherit; background: none; cursor: pointer;
+  border: 0; border-bottom: 1px solid var(--line); padding: 18px 0;
+}
+.item:last-child { border-bottom: 0; }
+.item .texto { min-width: 0; display: grid; gap: 6px; }
+.item h3 { margin: 0; font-weight: 500; font-size: 17px; line-height: 1.35; }
+.item h3 .destaque { font-weight: 500; }
+.item p {
+  margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.item .preco { margin-top: 6px; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.thumb { position: relative; width: 92px; height: 92px; border-radius: 8px; background: var(--stage); overflow: hidden; }
+.thumb model-viewer { width: 100%; height: 100%; --poster-color: transparent; pointer-events: none; }
+.badge3d {
+  position: absolute; right: 5px; bottom: 5px; font: 600 10px/1 var(--font); letter-spacing: .04em;
+  background: var(--accent); color: var(--accent-ink); padding: 4px 6px; border-radius: 5px;
+}
+
+footer { padding-block: 30px 40px; color: var(--muted); font-size: 12px; display: grid; justify-items: center; gap: 10px; }
+.assinatura { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.assinatura img { width: 26px; height: 26px; }
+.assinatura b { font-family: var(--font-marca); font-weight: 500; font-size: 20px; letter-spacing: .14em; color: var(--ink); }
+.erro { padding: 20px 0; color: var(--muted); }
+
+/* ficha do prato */
+dialog.ficha {
+  border: 0; padding: 0; margin: auto 0 0; width: 100%; max-width: 100%; max-height: 94vh;
+  background: var(--surface); color: var(--ink); font-family: var(--font);
+  border-radius: 18px 18px 0 0; overflow: hidden;
+}
+dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
+@media (min-width: 760px) {
+  dialog.ficha { margin: auto; max-width: 900px; width: calc(100% - 48px); border-radius: 18px; max-height: 88vh; }
+  .ficha-grid { grid-template-columns: 1.15fr 1fr; }
+  .palco { height: 100% !important; min-height: 480px; }
+}
+.ficha-grid { display: grid; max-height: inherit; }
+.palco { position: relative; background: var(--stage); height: 50vh; min-height: 320px; }
+.palco model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
+.palco.com-aviso model-viewer { height: calc(100% - 74px); }
+.fechar {
+  position: absolute; top: 12px; right: 12px; z-index: 2; width: 38px; height: 38px; border-radius: 99px;
+  border: 0; background: var(--surface); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
+.dica-girar {
+  position: absolute; left: 12px; top: 16px; font-size: 11.5px; color: var(--muted);
+  background: var(--surface); padding: 4px 10px; border-radius: 99px;
+}
+.btn-ar {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  font: 500 15px/1 var(--font); color: var(--accent-ink); background: var(--accent);
+  border: 0; border-radius: 99px; padding: 13px 20px; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+}
+.btn-ar svg { width: 18px; height: 18px; }
+.sem-ar {
+  position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; gap: 12px; align-items: center;
+  background: var(--surface); border-radius: 12px; padding: 10px 12px;
+  font-size: 12px; line-height: 1.4; color: var(--muted);
+}
+.sem-ar .qr { flex: none; background: #fff; padding: 4px; border-radius: 6px; line-height: 0; }
+.sem-ar .qr img, .sem-ar .qr canvas { width: 76px !important; height: 76px !important; }
+.sem-ar strong { color: var(--ink); display: block; font-size: 13.5px; font-weight: 600; }
+
+.detalhe { padding: 20px 20px 28px; overflow-y: auto; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.detalhe h2 { font-weight: 500; font-size: 24px; line-height: 1.25; margin: 0; text-wrap: balance; }
+.detalhe .preco-grande { font-weight: 600; font-size: 19px; }
+.detalhe > p { margin: 0; color: var(--muted); font-size: 14px; }
+.medidas { display: grid; grid-template-columns: repeat(3, 1fr); border-block: 1px solid var(--line); }
+.medidas div { padding: 12px 0; display: grid; gap: 2px; }
+.medidas div + div { padding-left: 14px; border-left: 1px solid var(--line); }
+.medidas span { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.medidas b { font-family: var(--font-mono); font-weight: 500; font-size: 15px; font-variant-numeric: tabular-nums; }
+.escala {
+  display: flex; gap: 10px; align-items: center; font-size: 13px;
+  background: var(--accent-soft); color: var(--ink); border-radius: 10px; padding: 10px 12px;
+}
+.escala svg { flex: none; width: 22px; height: 22px; color: var(--accent); }
+.bloco h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.ingredientes { margin: 0; font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 99px; background: var(--stage); }
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<div class="abertura" id="abertura" role="img" aria-label="Kardap"><img src="marca/kardap-logo.jpg" alt=""></div>
+
+<header class="banner" role="img" aria-label="Kardap"></header>
+
+<div class="gutter">
+  <div class="coluna">
+    <div class="cabecalho">
+      <h1 id="nome-restaurante">Tasca do Largo</h1>
+      <p id="subtitulo">Cozinha portuguesa e clássicos da casa</p>
+    </div>
+    <div class="aviso">
+      <h2>Veja o prato antes de pedir</h2>
+      <p>Toque em qualquer prato para vê-lo em 3D. No celular, use “Ver na minha mesa” e o prato aparece em tamanho real em cima da sua mesa, pela câmera.</p>
+    </div>
+  </div>
+</div>
+
+<nav class="cats gutter" aria-label="Categorias"><div class="coluna" id="cats"></div></nav>
+
+<div class="gutter">
+  <main class="coluna" id="menu"><p class="erro">A carregar o menu…</p></main>
+  <footer class="coluna">
+    <span class="assinatura">Menu digital por <img src="marca/kardap-k.png" alt=""><b>Kardap</b></span>
+    <span>Demonstração · produtos e modelos 3D de exemplo</span>
+  </footer>
+</div>
+
+<dialog class="ficha" id="ficha" aria-labelledby="f-nome">
+  <div class="ficha-grid">
+    <div class="palco">
+      <span class="dica-girar">Arraste para girar · pinça para zoom</span>
+      <button class="fechar" id="fechar" aria-label="Fechar">×</button>
+      <model-viewer id="viewer"
+        camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="1500" rotation-per-second="18deg"
+        shadow-intensity="1" shadow-softness="0.8" exposure="1.05" environment-image="neutral"
+        camera-orbit="30deg 62deg 105%" interaction-prompt="none"
+        ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" ar-placement="floor">
+        <div slot="progress-bar"></div>
+        <button slot="ar-button" class="btn-ar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
+          Ver na minha mesa
+        </button>
+      </model-viewer>
+      <div class="sem-ar" id="sem-ar" hidden>
+        <div class="qr" id="qr" hidden></div>
+        <div><strong>Realidade aumentada no celular</strong>Abra este menu no celular e toque em “Ver na minha mesa” para pôr o prato em tamanho real na sua mesa.</div>
+      </div>
+    </div>
+    <div class="detalhe">
+      <div style="display:grid;gap:4px">
+        <h2 id="f-nome"></h2>
+        <span class="preco-grande" id="f-preco"></span>
+      </div>
+      <p id="f-desc"></p>
+      <div class="medidas">
+        <div><span>Porção</span><b id="f-peso"></b></div>
+        <div><span>Energia</span><b id="f-kcal"></b></div>
+        <div><span>Tamanho</span><b id="f-tam"></b></div>
+      </div>
+      <div class="escala">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/></svg>
+        <span id="f-medida"></span>
+      </div>
+      <div class="bloco"><h4>Ingredientes</h4><p class="ingredientes" id="f-ing"></p></div>
+      <div class="bloco"><h4>Alergénios</h4><div class="tags" id="f-alerg"></div></div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let dados = null;
+  let ativa = null;
+  let moeda = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
+
+  function renderCats() {
+    const cats = dados.categorias;
+    $('#cats').innerHTML = cats.map((c) =>
+      `<button class="aba" id="cat-${c.id}" data-cat="${c.id}" aria-pressed="${c.id === ativa}">${esc(c.nome)}</button>`
+    ).join('');
+  }
+
+  function cardHTML(p) {
+    const titulo = esc(p.nome) + (p.destaque ? ` <span class="destaque">- ${esc(p.destaque)}</span>` : '');
+    return `<button class="item" id="card-${p.id}" data-id="${p.id}" aria-label="${esc(p.nome)}, ${moeda.format(p.preco)}. Ver em 3D">
+      <div class="texto">
+        <h3>${titulo}</h3>
+        <p>${esc(p.descricao)}</p>
+        <span class="preco">${moeda.format(p.preco)}</span>
+      </div>
+      <div class="thumb">
+        <model-viewer data-src="${p.modelo}" camera-orbit="30deg 55deg 72%"
+          interaction-prompt="none" disable-zoom shadow-intensity="0.8" environment-image="neutral"
+          loading="lazy" aria-hidden="true"><div slot="progress-bar"></div></model-viewer>
+        <span class="badge3d">3D</span>
+      </div>
+    </button>`;
+  }
+
+  function renderMenu() {
+    const secoes = dados.categorias
+      .map((c) => {
+        const itens = dados.produtos.filter((p) => p.categoria === c.id);
+        if (!itens.length) return '';
+        return `<section class="secao" id="sec-${c.id}" data-sec="${c.id}"><h2>${esc(c.nome)}</h2>${itens.map(cardHTML).join('')}</section>`;
+      });
+    $('#menu').innerHTML = secoes.join('');
+    carregarMiniaturas();
+  }
+
+  // Resolve o endereço do modelo. Em hospedagem normal é o próprio .glb;
+  // onde .glb não é servido, carrega a versão base64 (.glb.b64.txt) e cria um blob.
+  const cacheModelos = new Map();
+  function urlDoModelo(caminho) {
+    if (cacheModelos.has(caminho)) return cacheModelos.get(caminho);
+    const pr = fetch(caminho, { method: 'HEAD' })
+      .then((r) => {
+        const tipo = r.headers.get('content-type') || '';
+        if (r.ok && !tipo.includes('text/html')) return caminho;
+        throw new Error('sem glb');
+      })
+      .catch(() => fetch(caminho + '.b64.txt')
+        .then((r) => r.text())
+        .then((b64) => {
+          const bin = atob(b64.trim());
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          return URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }));
+        }));
+    cacheModelos.set(caminho, pr);
+    return pr;
+  }
+  function carregarMiniaturas() {
+    document.querySelectorAll('.thumb model-viewer[data-src]').forEach((mv) => {
+      urlDoModelo(mv.dataset.src).then((u) => { mv.src = u; });
+    });
+  }
+
+  const viewer = $('#viewer');
+  const ficha = $('#ficha');
+  let qrFeito = false;
+
+  function abrir(id) {
+    const p = dados.produtos.find((x) => x.id === id);
+    if (!p) return;
+    urlDoModelo(p.modelo).then((u) => { viewer.src = u; });
+    viewer.alt = `Modelo 3D de ${p.nome}`;
+    viewer.cameraOrbit = '30deg 62deg 105%';
+    $('#f-nome').textContent = p.nome;
+    $('#f-preco').textContent = moeda.format(p.preco);
+    $('#f-desc').textContent = p.descricao;
+    $('#f-peso').textContent = `${p.peso_g} g`;
+    $('#f-kcal').textContent = `${p.kcal} kcal`;
+    $('#f-tam').textContent = (p.medida.match(/Ø\s?\d+\s?cm/) || [p.medida.split('·')[0].trim()])[0];
+    $('#f-medida').textContent = `${p.medida}. Na realidade aumentada o prato aparece neste tamanho real.`;
+    $('#f-ing').textContent = p.ingredientes.join(', ') + '.';
+    $('#f-alerg').innerHTML = p.alergenos.length
+      ? p.alergenos.map((a) => `<span class="tag">${esc(a)}</span>`).join('')
+      : '<span class="tag">Sem alergénios declarados</span>';
+    if (!ficha.open) ficha.showModal();
+    try { history.replaceState(null, '', '#' + p.id); } catch (e) {}
+  }
+
+  function verificarAR() {
+    const semAR = !viewer.canActivateAR;
+    $('#sem-ar').hidden = !semAR;
+    document.querySelector('.palco').classList.toggle('com-aviso', semAR);
+    if (semAR && !qrFeito && window.QRCode) {
+      const host = location.hostname;
+      // Só desenha o QR quando a página está no seu próprio endereço (ex.: GitHub Pages).
+      if (location.protocol === 'https:' && !/claude/i.test(host)) {
+        new QRCode($('#qr'), { text: location.href.split('#')[0], width: 152, height: 152, colorDark: '#131a29', colorLight: '#ffffff' });
+        $('#qr').hidden = false;
+      }
+      qrFeito = true;
+    }
+  }
+  viewer.addEventListener('load', verificarAR);
+
+  $('#fechar').addEventListener('click', () => ficha.close());
+  ficha.addEventListener('click', (e) => { if (e.target === ficha) ficha.close(); });
+  ficha.addEventListener('close', () => { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} });
+
+  // Abas acompanham a rolagem (scroll spy)
+  const semAnimacao = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let travadoAte = 0;
+
+  function marcarAba(id) {
+    if (!id || id === ativa) return;
+    ativa = id;
+    document.querySelectorAll('#cats .aba').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === id)));
+    const aba = document.querySelector(`#cats [data-cat="${id}"]`);
+    const barra = $('#cats');
+    if (aba) barra.scrollTo({ left: aba.offsetLeft - (barra.clientWidth - aba.offsetWidth) / 2, behavior: semAnimacao ? 'auto' : 'smooth' });
+  }
+
+  function secaoAtual() {
+    const secoes = [...document.querySelectorAll('.secao')];
+    if (!secoes.length) return null;
+    // no fim da página, a última seção é a ativa
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) return secoes[secoes.length - 1].dataset.sec;
+    const limite = $('nav.cats').getBoundingClientRect().bottom + 12;
+    let atual = secoes[0].dataset.sec;
+    for (const s of secoes) if (s.getBoundingClientRect().top <= limite) atual = s.dataset.sec;
+    return atual;
+  }
+
+  let pendente = false;
+  window.addEventListener('scroll', () => {
+    if (pendente || Date.now() < travadoAte) return;
+    pendente = true;
+    requestAnimationFrame(() => { pendente = false; marcarAba(secaoAtual()); });
+  }, { passive: true });
+
+  $('#cats').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat]');
+    if (!b) return;
+    const sec = document.getElementById('sec-' + b.dataset.cat);
+    marcarAba(b.dataset.cat);
+    travadoAte = Date.now() + 700; // não deixa o spy "piscar" outras abas durante a rolagem suave
+    if (sec) sec.scrollIntoView({ behavior: semAnimacao ? 'auto' : 'smooth', block: 'start' });
+  });
+  $('#menu').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-id]');
+    if (c) abrir(c.dataset.id);
+  });
+
+  const abertura = $('#abertura');
+  const inicio = Date.now();
+  function fecharAbertura() {
+    if (!abertura || abertura.classList.contains('sumir')) return;
+    abertura.classList.add('sumir');
+    setTimeout(() => { abertura.hidden = true; }, 600);
+  }
+  const fecharDepois = () => setTimeout(fecharAbertura, Math.max(0, 1600 - (Date.now() - inicio)));
+  if (abertura) abertura.addEventListener('click', fecharAbertura);
+  setTimeout(fecharAbertura, 4000); // nunca prende o cliente na abertura
+
+  fetch('produtos.json')
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((d) => {
+      dados = d;
+      $('#nome-restaurante').textContent = d.restaurante.nome;
+      $('#subtitulo').textContent = d.restaurante.subtitulo;
+      document.title = `Menu 3D ${d.restaurante.nome}`;
+      moeda = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: d.restaurante.moeda || 'EUR' });
+      ativa = d.categorias[0] && d.categorias[0].id;
+      renderCats(); renderMenu();
+      fecharDepois();
+      const alvo = location.hash.slice(1);
+      if (alvo) abrir(alvo);
+    })
+    .catch(() => {
+      fecharAbertura();
+      $('#menu').innerHTML = '<p class="erro">Não foi possível carregar produtos.json. Se abriu o arquivo direto do disco, rode um servidor local (ex.: <code>python3 -m http.server</code>) e abra http://localhost:8000.</p>';
+    });
+})();
+</script>
+
+</body>
+</html>
