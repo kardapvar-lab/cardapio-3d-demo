@@ -8,17 +8,30 @@ Demo de cardápio digital com pratos em 3D e realidade aumentada (AR) em tamanho
 ```
 index.html              página do cardápio (HTML + CSS + JS, sem build)
 produtos.json           dados do restaurante, categorias e produtos
+versao.json             versão publicada (a página se recarrega sozinha quando muda)
+fotos/*.jpg             fotos dos pratos (lista e ficha)
 marca/                  logo Kardap (banner, tela de abertura e rodapé)
 modelos/*.glb           modelos 3D dos pratos, em metros (escala real)
 ferramentas/gerar-modelos.mjs   script que gerou os modelos (three.js)
+ferramentas/versao.py   carimba uma versão nova antes de publicar
 .nojekyll               faz o GitHub Pages servir os arquivos como estão
 ```
 
 - **Visualizador 3D e AR:** [`<model-viewer>`](https://modelviewer.dev) do Google, carregado por CDN.
 - **AR em tamanho real:** `ar-scale="fixed"` impede o cliente de redimensionar o prato na AR.
-  - Android: WebXR / Scene Viewer
+  - Android: Scene Viewer (app de AR do Google; prende o prato na superfície)
   - iPhone: Quick Look (o model-viewer gera o USDZ a partir do GLB sozinho)
 - **Link direto para um prato:** `.../#bitoque` abre a ficha dele. Serve para QR code por prato.
+
+## Publicar uma atualização
+
+```bash
+python3 ferramentas/versao.py
+git add -A && git commit -m "Descrição da mudança" && git push
+```
+
+O `versao.py` troca o número de versão no `index.html` e no `versao.json`. Quem já estiver com o
+menu aberto (ou com a página antiga em cache) recarrega sozinho na versão nova ao abrir ou voltar à aba.
 
 ## Rodar localmente
 

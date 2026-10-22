@@ -240,6 +240,25 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 <script>
 (() => {
   const $ = (s) => document.querySelector(s);
+
+  // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
+  // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
+  const VERSAO = '20261022-101627';
+  function checarVersao() {
+    fetch('versao.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => {
+        if (!v || !v.versao || v.versao === VERSAO) return;
+        const url = new URL(location.href);
+        if (url.searchParams.get('v') === v.versao) return; // já tentou esta versão: não entra em loop
+        url.searchParams.set('v', v.versao);
+        location.replace(url.toString());
+      })
+      .catch(() => {});
+  }
+  checarVersao();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checarVersao(); });
+  const comVersao = (caminho) => caminho + (caminho.includes('?') ? '&' : '?') + 'v=' + VERSAO;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let dados = null;
   let ativa = null;
@@ -261,7 +280,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
         <span class="preco">${moeda.format(p.preco)}</span>
       </div>
       <div class="thumb">
-        <img src="${p.foto}" alt="" loading="lazy" width="92" height="92">
+        <img src="${comVersao(p.foto)}" alt="" loading="lazy" width="92" height="92">
         <span class="badge3d">3D</span>
       </div>
     </button>`;
@@ -285,7 +304,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     const pr = fetch(caminho, { method: 'HEAD' })
       .then((r) => {
         const tipo = r.headers.get('content-type') || '';
-        if (r.ok && !tipo.includes('text/html')) return caminho;
+        if (r.ok && !tipo.includes('text/html')) return comVersao(caminho);
         throw new Error('sem glb');
       })
       .catch(() => fetch(caminho + '.b64.txt')
@@ -321,7 +340,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     if (!p) return;
     urlDoModelo(p.modelo).then((u) => { viewer.src = u; });
     viewer.alt = `Modelo 3D de ${p.nome}`;
-    $('#f-foto').src = p.foto;
+    $('#f-foto').src = comVersao(p.foto);
     $('#f-foto').alt = `Foto de ${p.nome}`;
     $('#f-nome').textContent = p.nome;
     $('#f-preco').textContent = moeda.format(p.preco);
@@ -399,7 +418,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   if (abertura) abertura.addEventListener('click', fecharAbertura);
   setTimeout(fecharAbertura, 4000); // nunca prende o cliente na abertura
 
-  fetch('produtos.json')
+  fetch('produtos.json', { cache: 'no-store' })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then((d) => {
       dados = d;
