@@ -18,19 +18,5 @@
       "nome": "Sobremesas"
     }
   ],
-  "produtos": [
-    {
-      "id": "laranja",
-      "nome": "Laranja",
-      "categoria": "pratos",
-      "descricao": "Laranja",
-      "preco": 12.0,
-      "foto": "fotos/laranja.jpg",
-      "modelo": "modelos/laranja.glb",
-      "medida": "Ø 25 cm",
-      "peso_g": null,
-      "ingredientes": [],
-      "destaque": null
-    }
-  ]
+  "produtos": []
 }
