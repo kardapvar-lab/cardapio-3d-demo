@@ -122,6 +122,8 @@ nav.cats {
 footer { padding-block: 30px 40px; color: var(--muted); font-size: 12px; display: grid; justify-items: center; gap: 10px; }
 .assinatura { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .assinatura img { width: 26px; height: 26px; }
+.creditos { margin: 0; max-width: 560px; text-align: center; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.creditos a { color: inherit; }
 .assinatura b { font-family: var(--font-marca); font-weight: 500; font-size: 20px; letter-spacing: .14em; color: var(--ink); }
 .erro { padding: 20px 0; color: var(--muted); }
 
@@ -241,6 +243,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   <main class="coluna" id="menu"><p class="erro">Carregando o cardápio…</p></main>
   <footer class="coluna">
     <span class="assinatura">Menu digital por <img src="marca/kardap-k.png" alt=""><b>Kardap</b></span>
+    <p class="creditos" id="creditos" hidden></p>
   </footer>
 </div>
 
@@ -299,7 +302,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261023-191038';
+  const VERSAO = '20261023-210841';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
@@ -321,8 +324,21 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
   let ativa = null;
   let moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  // Créditos dos modelos 3D de terceiros (licença CC BY: atribuição obrigatória)
+  function renderCreditos() {
+    const lista = dados.produtos.filter((p) => p.credito);
+    const el = $('#creditos');
+    if (!el) return;
+    el.hidden = !lista.length;
+    el.innerHTML = lista.length ? 'Modelos 3D: ' + lista.map((p) => {
+      const c = p.credito;
+      const autor = c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.autor)}</a>` : esc(c.autor);
+      return `${esc(p.nome)} por ${autor} (${esc(c.licenca || 'CC BY 4.0')})`;
+    }).join(' · ') : '';
+  }
+
   function renderCats() {
-    const cats = dados.categorias;
+    const cats = dados.categorias.filter((c) => dados.produtos.some((p) => p.categoria === c.id));
     $('#cats').innerHTML = cats.map((c) =>
       `<button class="aba" id="cat-${c.id}" data-cat="${c.id}" aria-pressed="${c.id === ativa}">${esc(c.nome)}</button>`
     ).join('');
@@ -564,7 +580,9 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
       $('#subtitulo').textContent = d.restaurante.subtitulo;
       document.title = `Menu 3D ${d.restaurante.nome}`;
       moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: d.restaurante.moeda || 'BRL' });
-      ativa = d.categorias[0] && d.categorias[0].id;
+      const primeira = d.categorias.find((c) => d.produtos.some((p) => p.categoria === c.id));
+      ativa = primeira && primeira.id;
+      renderCreditos();
       renderCats(); renderMenu();
       fecharDepois();
       const alvo = location.hash.slice(1);

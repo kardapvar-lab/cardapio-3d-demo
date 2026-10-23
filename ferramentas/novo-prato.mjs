@@ -59,7 +59,7 @@ const ficha = JSON.parse(fs.readFileSync(fichaArq, 'utf8'));
 // ---------- o modelo
 const doc = await io.read(scanArq);
 for (const e of ficha.etapas) await etapa(doc, e);
-await finalizar(doc);
+await finalizar(doc, { fecharFundo: ficha.fecharFundo !== false });
 const modeloArq = path.join(RAIZ, ficha.produto.modelo);
 await io.write(modeloArq, doc);
 const r = resumo(doc);

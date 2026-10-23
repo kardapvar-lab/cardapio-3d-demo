@@ -19,6 +19,7 @@ export const TRIANGULOS = 60000; // "reduzir": "auto" deixa mais ou menos isso (
 //   maiorPeca: fica só a maior parte conectada   giro: graus em Y (qual lado fica de frente)
 //   tirarMesa: tira o tampo da mesa em volta (a superfície plana mais baixa, fora do prato)
 //   diametro: maior medida horizontal real em metros (sem isso o scan já está em metros)
+//   nivelar: deixa o prato reto (scan torto)       abaixoDe: tira o que está abaixo dessa altura (m, da base)
 
 const primitivas = (root) => root.listMeshes().flatMap((m) => m.listPrimitives());
 
@@ -153,6 +154,70 @@ function tirarMesa(root) {
   return plano[2] / l; // a origem do plano depois do giro: a mesa fica em y = c / |n|
 }
 
+// Nivela o prato: um prato com comida é um disco largo e baixo, então a direção de menor espalhamento
+// (o menor autovetor da covariância, pesada pela área dos triângulos) é a "vertical" do prato.
+// Gira tudo para essa direção virar +Y. Serve para scans que vieram tortos.
+function nivelar(root) {
+  const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0];
+  let soma = 0;
+  const m = [0, 0, 0];
+  const pts = [];
+  for (const p of primitivas(root)) {
+    const pos = p.getAttribute('POSITION'), tri = p.getIndices().getArray();
+    for (let t = 0; t < tri.length; t += 3) {
+      pos.getElement(tri[t], a); pos.getElement(tri[t + 1], b); pos.getElement(tri[t + 2], c);
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
+      const area = Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx) / 2;
+      const g = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+      pts.push([g, area]); soma += area;
+      for (let k = 0; k < 3; k++) m[k] += g[k] * area;
+    }
+  }
+  if (!soma) return;
+  for (let k = 0; k < 3; k++) m[k] /= soma;
+  const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (const [g, w] of pts) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i][j] += w * (g[i] - m[i]) * (g[j] - m[j]);
+  // autovetores 3x3 (Jacobi)
+  const V = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (let it = 0; it < 50; it++) {
+    let p = 0, q = 1;
+    for (const [i, j] of [[0, 1], [0, 2], [1, 2]]) if (Math.abs(C[i][j]) > Math.abs(C[p][q])) { p = i; q = j; }
+    if (Math.abs(C[p][q]) < 1e-14) break;
+    const th = 0.5 * Math.atan2(2 * C[p][q], C[q][q] - C[p][p]), cs = Math.cos(th), sn = Math.sin(th);
+    for (let k = 0; k < 3; k++) { const x = C[k][p], y = C[k][q]; C[k][p] = cs * x - sn * y; C[k][q] = sn * x + cs * y; }
+    for (let k = 0; k < 3; k++) { const x = C[p][k], y = C[q][k]; C[p][k] = cs * x - sn * y; C[q][k] = sn * x + cs * y; }
+    for (let k = 0; k < 3; k++) { const x = V[k][p], y = V[k][q]; V[k][p] = cs * x - sn * y; V[k][q] = sn * x + cs * y; }
+  }
+  const menor = [0, 1, 2].sort((i, j) => C[i][i] - C[j][j])[0];
+  let n = [V[0][menor], V[1][menor], V[2][menor]];
+  if (n[1] < 0) n = n.map((x) => -x); // o scan vem mais ou menos em pé: mantém o "para cima"
+  // rotação que leva n para +Y (Rodrigues)
+  const eixo = [n[2], 0, -n[0]], s = Math.hypot(...eixo), cosA = n[1];
+  if (s < 1e-6) return;
+  const k = eixo.map((x) => x / s), ang = Math.atan2(s, cosA), co = Math.cos(ang), si = Math.sin(ang);
+  cadaVertice(root, (v) => {
+    const d = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
+    const cr = [k[1] * v[2] - k[2] * v[1], k[2] * v[0] - k[0] * v[2], k[0] * v[1] - k[1] * v[0]];
+    return [0, 1, 2].map((i) => v[i] * co + cr[i] * si + k[i] * d * (1 - co));
+  });
+}
+
+// Tira tudo abaixo de uma altura (suporte, pé de mesa ou tripé que o scan pegou embaixo do prato).
+// abaixoDe em metros, medido da base do modelo como ele está ao chegar nesta etapa.
+function cortarAbaixo(root, abaixoDe) {
+  const b = getBounds(root.listScenes()[0]);
+  const corte = b.min[1] + abaixoDe;
+  const a = [0, 0, 0], bb = [0, 0, 0], c = [0, 0, 0];
+  for (const p of primitivas(root)) {
+    const pos = p.getAttribute('POSITION'), tri = p.getIndices().getArray(), fica = [];
+    for (let t = 0; t < tri.length; t += 3) {
+      pos.getElement(tri[t], a); pos.getElement(tri[t + 1], bb); pos.getElement(tri[t + 2], c);
+      if (Math.min(a[1], bb[1], c[1]) >= corte) fica.push(tri[t], tri[t + 1], tri[t + 2]);
+    }
+    p.getIndices().setArray(new Uint32Array(fica));
+  }
+}
+
 // Tira triângulos escuros (pela cor da textura nos vértices), menos os que estão dentro de foraDe.
 async function tirarEscuro(root, limite, foraDe, imagens) {
   for (const p of primitivas(root)) {
@@ -257,8 +322,10 @@ export const triangulos = (doc) => primitivas(doc.getRoot()).reduce((s, p) => s 
 export async function etapa(doc, e, imagens) {
   const root = doc.getRoot();
   await achatar(doc);
-  if (e.recorte) recortar(root, e.recorte);
   await doc.transform(dedup(), join(), weld({}), prune());
+  if (e.nivelar) nivelar(root);
+  if (e.abaixoDe) cortarAbaixo(root, e.abaixoDe);
+  if (e.recorte) recortar(root, e.recorte);
   const yMesa = e.tirarMesa ? tirarMesa(root) : null;
   if (e.escuro) await tirarEscuro(root, e.escuro, e.foraDe, imagens);
   tirarVazias(root);

@@ -16,34 +16,41 @@
     {
       "id": "sobremesas",
       "nome": "Sobremesas"
+    },
+    {
+      "id": "bebidas",
+      "nome": "Bebidas"
     }
   ],
   "produtos": [
     {
-      "id": "laranja",
-      "nome": "Laranja",
-      "categoria": "pratos",
-      "descricao": "Laranja",
-      "preco": 12.0,
-      "foto": "fotos/laranja.jpg",
-      "modelo": "modelos/laranja.glb",
-      "medida": "Ø 24 cm",
-      "peso_g": 25,
-      "ingredientes": [],
-      "destaque": null
-    },
-    {
-      "id": "laranja2",
-      "nome": "Laranja2",
-      "categoria": "pratos",
-      "descricao": "Laranja",
-      "preco": 15.0,
-      "foto": "fotos/laranja2.jpg",
-      "modelo": "modelos/laranja2.glb",
-      "medida": "Ø 24 cm",
-      "peso_g": 25,
-      "ingredientes": [],
-      "destaque": null
+      "id": "pizza-trufa",
+      "nome": "Pizza Trufa com Bresaola",
+      "categoria": "pizzas",
+      "descricao": "Massa de fermentação natural, molho de tomate, muçarela, bresaola fatiada, rúcula fresca e lascas de trufa.",
+      "preco": 79.9,
+      "foto": "fotos/pizza-trufa.jpg",
+      "modelo": "modelos/pizza-trufa.glb",
+      "medida": "Pizza Ø 33 cm · prato Ø 38 cm",
+      "peso_g": 650,
+      "ingredientes": [
+        "Massa de fermentação natural",
+        "Molho de tomate",
+        "Muçarela",
+        "Bresaola",
+        "Rúcula",
+        "Trufa"
+      ],
+      "destaque": "Escolha do chef",
+      "alergenos": [
+        "Glúten",
+        "Leite"
+      ],
+      "credito": {
+        "autor": "Rigsters",
+        "url": "https://sketchfab.com/3d-models/pizza-40d50989fec1460f8838b608d999ccd0",
+        "licenca": "CC BY 4.0"
+      }
     }
   ]
 }

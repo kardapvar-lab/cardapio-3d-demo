@@ -1,0 +1,40 @@
+{
+  "produto": {
+    "id": "pizza-trufa",
+    "nome": "Pizza Trufa com Bresaola",
+    "categoria": "pizzas",
+    "descricao": "Massa de fermentação natural, molho de tomate, muçarela, bresaola fatiada, rúcula fresca e lascas de trufa.",
+    "preco": 79.9,
+    "foto": "fotos/pizza-trufa.jpg",
+    "modelo": "modelos/pizza-trufa.glb",
+    "medida": "Pizza Ø 33 cm · prato Ø 38 cm",
+    "peso_g": 650,
+    "ingredientes": [
+      "Massa de fermentação natural",
+      "Molho de tomate",
+      "Muçarela",
+      "Bresaola",
+      "Rúcula",
+      "Trufa"
+    ],
+    "destaque": "Escolha do chef",
+    "alergenos": [
+      "Glúten",
+      "Leite"
+    ],
+    "credito": {
+      "autor": "Rigsters",
+      "url": "https://sketchfab.com/3d-models/pizza-40d50989fec1460f8838b608d999ccd0",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "nivelar": true,
+      "maiorPeca": true,
+      "reduzir": 0.6,
+      "diametro": 0.38
+    }
+  ]
+}
