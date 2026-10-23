@@ -31,6 +31,19 @@
       "peso_g": 25,
       "ingredientes": [],
       "destaque": null
+    },
+    {
+      "id": "laranja2",
+      "nome": "Laranja2",
+      "categoria": "pratos",
+      "descricao": "Laranja",
+      "preco": 15.0,
+      "foto": "fotos/laranja2.jpg",
+      "modelo": "modelos/laranja2.glb",
+      "medida": "Ø 24 cm",
+      "peso_g": 25,
+      "ingredientes": [],
+      "destaque": null
     }
   ]
 }
