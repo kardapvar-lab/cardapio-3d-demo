@@ -15,5 +15,5 @@ const imagens = {
 };
 
 export const etapa = (doc, e) => modelo.etapa(doc, e, imagens);
-export const finalizar = (doc) => modelo.finalizar(doc, imagens);
+export const finalizar = (doc, opcoes) => modelo.finalizar(doc, imagens, opcoes);
 export const { resumo, triangulos } = modelo;

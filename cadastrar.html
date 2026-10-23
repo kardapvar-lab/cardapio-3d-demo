@@ -90,6 +90,7 @@ a { color: var(--accent); }
     <p class="aviso escondido" id="aviso-modelo"></p>
     <div id="ajustes" class="escondido" style="display:grid; gap:12px">
       <label class="check"><input type="checkbox" id="tirar-mesa" checked> Tirar a mesa em volta</label>
+      <label class="check"><input type="checkbox" id="fechar-fundo" checked> Fechar o fundo (por baixo)</label>
       <div class="linha">
         <label>Diâmetro real (cm)<input type="number" id="diametro" inputmode="decimal" min="3" max="80" step="0.5" placeholder="do scan"></label>
         <label>Recortar fora de (cm)<input type="number" id="recorte" inputmode="decimal" min="3" max="80" step="0.5" placeholder="não recortar"></label>
@@ -233,7 +234,7 @@ async function tratar() {
       diametro: diametro > 0 ? diametro / 100 : undefined,
     }, imagens);
     if (recorte > 0) await lib.etapa(doc, { recorte: { cx: 0, cz: 0, r: recorte / 100 }, maiorPeca: true }, imagens);
-    await lib.finalizar(doc, imagens);
+    const { fechouFundo } = await lib.finalizar(doc, imagens, { fecharFundo: $('#fechar-fundo').checked });
     glb = await io.writeBinary(doc);
     medidas = lib.resumo(doc);
 
@@ -246,7 +247,8 @@ async function tratar() {
 
     const { largura, fundo, altura, triangulos } = medidas, maior = Math.max(largura, fundo);
     $('#medidas').textContent = `${largura} × ${fundo} cm · ${altura} cm de altura · `
-      + `${Math.round(triangulos / 1000)} mil triângulos · ${(glb.length / 1e6).toFixed(1)} MB`;
+      + `${Math.round(triangulos / 1000)} mil triângulos · ${(glb.length / 1e6).toFixed(1)} MB`
+      + (fechouFundo ? ' · fundo fechado' : '');
     if (maior < 5 || maior > 60) aviso(`${maior} cm não parece um prato: ponha o diâmetro real e toque em Aplicar.`);
     else if (altura > maior) aviso('Está mais alto que largo: o scan pode ter vindo deitado ou com sobra de mesa.');
     else if (glb.length > 3e6) aviso('Modelo pesado pro celular; o cardápio vai demorar pra abrir esse prato.');

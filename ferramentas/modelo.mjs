@@ -212,14 +212,106 @@ export async function etapa(doc, e, imagens) {
   cadaVertice(root, ([x, y, z]) => [(x - cx) * k, (y - y0) * k, (z - cz) * k]);
 }
 
+// Contorno convexo (cadeia monótona) de pontos [x, z].
+function contorno(pts) {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const giro = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const baixo = [], cima = [];
+  for (const q of p) { while (baixo.length >= 2 && giro(baixo.at(-2), baixo.at(-1), q) <= 0) baixo.pop(); baixo.push(q); }
+  for (const q of p.reverse()) { while (cima.length >= 2 && giro(cima.at(-2), cima.at(-1), q) <= 0) cima.pop(); cima.push(q); }
+  return baixo.slice(0, -1).concat(cima.slice(0, -1));
+}
+
+// Fecha o fundo: o scan nunca vê a parte encostada na mesa, então por baixo o prato fica "vazado"
+// (e dá pra ver por dentro da comida). Põe uma tampa plana em y ≈ 0 com o contorno da base e a cor
+// média da borda de baixo, um pouco mais escura (é a parte de baixo do prato).
+async function fecharFundo(doc, imagens) {
+  const root = doc.getRoot();
+  const b = getBounds(root.listScenes()[0]);
+  const altura = b.max[1] - b.min[1];
+  const limite = b.min[1] + Math.max(0.004, altura * 0.08);
+  const pts = [], v = [0, 0, 0], t = [0, 0];
+  let soma = [0, 0, 0], n = 0;
+  // Área de baixo já escaneada: soma da área projetada dos triângulos virados para baixo.
+  const a = [0, 0, 0], bb = [0, 0, 0], c = [0, 0, 0];
+  let areaBaixo = 0;
+  for (const p of primitivas(root)) {
+    const pos = p.getAttribute('POSITION'), tri = p.getIndices().getArray();
+    for (let k = 0; k < tri.length; k += 3) {
+      pos.getElement(tri[k], a); pos.getElement(tri[k + 1], bb); pos.getElement(tri[k + 2], c);
+      const ny = (bb[2] - a[2]) * (c[0] - a[0]) - (bb[0] - a[0]) * (c[2] - a[2]);
+      if (ny < 0) areaBaixo += -ny / 2;
+    }
+  }
+  for (const p of primitivas(root)) {
+    const pos = p.getAttribute('POSITION'), uv = p.getAttribute('TEXCOORD_0');
+    const tex = p.getMaterial() && p.getMaterial().getBaseColorTexture();
+    let img = null;
+    if (tex && uv && imagens && imagens.decodificar) { try { img = await imagens.decodificar(tex.getImage()); } catch (e) { img = null; } }
+    for (let i = 0; i < pos.getCount(); i++) {
+      pos.getElement(i, v);
+      pts.push([v[0], v[2]]); // contorno do prato inteiro (a borda costuma ser mais larga que a base)
+      if (v[1] > limite) continue;
+      if (img) {
+        uv.getElement(i, t);
+        const x = Math.min(img.info.width - 1, Math.floor((((t[0] % 1) + 1) % 1) * img.info.width));
+        const y = Math.min(img.info.height - 1, Math.floor((((t[1] % 1) + 1) % 1) * img.info.height));
+        const k = (y * img.info.width + x) * 4;
+        soma[0] += img.data[k]; soma[1] += img.data[k + 1]; soma[2] += img.data[k + 2]; n++;
+      }
+    }
+  }
+  const borda = contorno(pts);
+  if (borda.length < 3) return false;
+  let areaContorno = 0;
+  for (let i = 0; i < borda.length; i++) {
+    const [x1, z1] = borda[i], [x2, z2] = borda[(i + 1) % borda.length];
+    areaContorno += (x1 * z2 - x2 * z1) / 2;
+  }
+  // Se o scan já tem fundo (mais de 60% da área por baixo), não tampa: o fundo real é melhor.
+  if (areaBaixo > Math.abs(areaContorno) * 0.6) return false;
+  const cor = n ? soma.map((s) => ((s / n) / 255) * 0.85) : [0.8, 0.8, 0.8];
+  // vértices: centro + contorno, um pouco acima da base para não brigar com a sombra
+  const y = b.min[1] + 0.0008;
+  const cx = borda.reduce((s, q) => s + q[0], 0) / borda.length, cz = borda.reduce((s, q) => s + q[1], 0) / borda.length;
+  const posicoes = [cx, y, cz, ...borda.flatMap(([x, z]) => [x, y, z])];
+  const indices = [];
+  for (let i = 0; i < borda.length; i++) {
+    const a = 1 + i, c = 1 + ((i + 1) % borda.length);
+    // virada para baixo: normal com y negativo
+    const [x1, z1] = borda[i], [x2, z2] = borda[(i + 1) % borda.length];
+    const ny = (z1 - cz) * (x2 - cx) - (x1 - cx) * (z2 - cz);
+    if (ny < 0) indices.push(0, a, c); else indices.push(0, c, a);
+  }
+  const buf = root.listBuffers()[0];
+  const qtd = posicoes.length / 3;
+  const normais = new Float32Array(qtd * 3);
+  for (let i = 0; i < qtd; i++) normais[i * 3 + 1] = -1;
+  const material = doc.createMaterial('fundo').setBaseColorFactor([...cor, 1]).setMetallicFactor(0).setRoughnessFactor(0.9);
+  const prim = doc.createPrimitive()
+    .setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(new Float32Array(posicoes)).setBuffer(buf))
+    .setAttribute('NORMAL', doc.createAccessor().setType('VEC3').setArray(normais).setBuffer(buf))
+    .setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint32Array(indices)).setBuffer(buf))
+    .setMaterial(material);
+  const no = doc.createNode('fundo').setMesh(doc.createMesh('fundo').addPrimitive(prim));
+  root.listScenes()[0].addChild(no);
+  return true;
+}
+
 // Depois das etapas: normais, material sem brilho e texturas leves.
-export async function finalizar(doc, imagens) {
+// opcoes.fecharFundo: tampa a base (ver fecharFundo).
+export async function finalizar(doc, imagens, opcoes = {}) {
   const root = doc.getRoot();
   normaisSuaves(doc);
+  const fechouFundo = opcoes.fecharFundo ? await fecharFundo(doc, imagens) : false;
+  // dupla face: buracos pequenos do scan mostram a cor do lado de dentro em vez de "sumir"
+  for (const m of root.listMaterials()) if (m.getName() !== 'fundo') m.setDoubleSided(true);
   for (const ext of root.listExtensionsUsed()) if (ext.extensionName === 'KHR_materials_unlit') ext.dispose();
   for (const m of root.listMaterials()) m.setMetallicFactor(0).setRoughnessFactor(0.9);
   await imagens.comprimir(doc);
   await doc.transform(prune());
+  return { fechouFundo };
 }
 
 // Medidas em cm e triângulos, pra conferir.
