@@ -142,7 +142,8 @@ a { color: var(--accent); }
       <div>
         <p class="dica">Só uma vez neste celular. Crie um token em github.com → Settings → Developer settings →
           Fine-grained tokens, só pra este repositório, com permissão <b>Contents: Read and write</b>.
-          Ele fica guardado só neste aparelho.</p>
+          Ele fica guardado só neste aparelho. Ou abra uma vez o link
+          <b>cadastrar.html#token=SEU_TOKEN</b>, que já deixa tudo configurado.</p>
         <label>Repositório<input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <label>Token<input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <div class="botoes"><button id="testar">Salvar e testar</button></div>
@@ -162,34 +163,46 @@ const FOTO = 900; // as fotos do cardápio são quadradas, 900 px
 
 // ---------- imagens no navegador (o modelo.mjs pede isso; no Node é o sharp)
 function carregarImagem(bytes, tipo) {
+  const blob = new Blob([bytes], { type: tipo || 'image/png' });
+  // ImageBitmap dá pra soltar na hora (close); a <img> o Safari só solta quando quer
+  if (self.createImageBitmap) return createImageBitmap(blob).catch(() => carregarImg(blob));
+  return carregarImg(blob);
+}
+function carregarImg(blob) {
   return new Promise((ok, erro) => {
-    const url = URL.createObjectURL(new Blob([bytes], { type: tipo || 'image/png' }));
+    const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); ok(img); };
     img.onerror = () => { URL.revokeObjectURL(url); erro(new Error('Não deu pra ler uma textura do scan')); };
     img.src = url;
   });
 }
-// desenha já no tamanho final: o Safari do iPhone não aguenta canvas muito grande
-function desenhar(img, maximo) {
-  const k = Math.min(1, maximo / Math.max(img.naturalWidth, img.naturalHeight));
+// desenha já no tamanho final (o Safari do iPhone não aguenta canvas muito grande) e solta a imagem
+async function desenhar(bytes, tipo, maximo) {
+  const img = await carregarImagem(bytes, tipo);
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const k = Math.min(1, maximo / Math.max(w, h));
   const c = document.createElement('canvas');
-  c.width = Math.max(1, Math.round(img.naturalWidth * k));
-  c.height = Math.max(1, Math.round(img.naturalHeight * k));
+  c.width = Math.max(1, Math.round(w * k));
+  c.height = Math.max(1, Math.round(h * k));
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  if (img.close) img.close(); else img.src = '';
   return c;
 }
+const soltar = (c) => { c.width = c.height = 0; }; // o Safari só libera a memória do canvas assim
 const paraBlob = (canvas, qualidade = 0.82) => new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', qualidade));
 const imagens = {
   async decodificar(bytes) {
-    const c = desenhar(await carregarImagem(bytes), 2048);
+    const c = await desenhar(bytes, null, 2048);
     const { data, width, height } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    soltar(c);
     return { data, info: { width, height } };
   },
   async comprimir(doc) {
     for (const tex of doc.getRoot().listTextures()) {
-      const img = await carregarImagem(tex.getImage(), tex.getMimeType());
-      const jpeg = await paraBlob(desenhar(img, lib.TEXTURA));
+      const c = await desenhar(tex.getImage(), tex.getMimeType(), lib.TEXTURA);
+      const jpeg = await paraBlob(c);
+      soltar(c);
       tex.setImage(new Uint8Array(await jpeg.arrayBuffer())).setMimeType('image/jpeg');
       if (tex.getURI()) tex.setURI(tex.getURI().replace(/\.\w+$/, '.jpg'));
     }
@@ -207,11 +220,34 @@ $('#arquivo-scan').addEventListener('change', async (ev) => {
     aviso(`"${arquivo.name}" não é .glb. No Scaniverse, exporte o scan em GLB.`);
     return;
   }
-  original = new Uint8Array(await arquivo.arrayBuffer());
+  $('#medidas').textContent = 'Abrindo o scan…';
+  aviso('');
+  try {
+    original = await aliviar(arquivo);
+  } catch (e) {
+    console.error(e);
+    $('#medidas').textContent = '';
+    aviso('Não deu pra abrir esse scan: ' + e.message);
+    return;
+  }
   giro = 0;
   $('#diametro').value = $('#recorte').value = '';
   await tratar();
 });
+
+// Os scans vêm com texturas enormes (o GLB do Scaniverse passa de 60 MB quase só de textura) e o
+// Safari do iPhone fecha a página se abrir isso várias vezes. Então reduz uma vez só, ao abrir,
+// uma textura de cada vez; os ajustes depois (girar, diâmetro...) já partem do arquivo leve.
+async function aliviar(arquivo) {
+  const doc = await io.readBinary(new Uint8Array(await arquivo.arrayBuffer()));
+  for (const tex of doc.getRoot().listTextures()) {
+    const c = await desenhar(tex.getImage(), tex.getMimeType(), 2048);
+    const jpeg = await paraBlob(c, 0.9);
+    soltar(c);
+    tex.setImage(new Uint8Array(await jpeg.arrayBuffer())).setMimeType('image/jpeg');
+  }
+  return io.writeBinary(doc);
+}
 $('#girar').addEventListener('click', () => { giro = (giro + 90) % 360; tratar(); });
 $('#aplicar').addEventListener('click', () => tratar());
 
@@ -288,11 +324,11 @@ function mostrarFoto(blob) {
 $('#arquivo-foto').addEventListener('change', async (ev) => {
   const arquivo = ev.target.files[0];
   ev.target.value = '';
-  if (arquivo) mostrarFoto(await fotoQuadrada(await carregarImagem(await arquivo.arrayBuffer(), arquivo.type)));
+  if (arquivo) mostrarFoto(await fotoQuadrada(await carregarImg(arquivo))); // <img>: respeita a orientação da foto do iPhone
 });
 $('#foto-do-modelo').addEventListener('click', async () => {
   const imagem = await $('#viewer').toBlob({ mimeType: 'image/png', idealAspect: false });
-  mostrarFoto(await fotoQuadrada(await carregarImagem(await imagem.arrayBuffer(), 'image/png')));
+  mostrarFoto(await fotoQuadrada(await carregarImg(imagem)));
 });
 
 // ---------- 3. dados
@@ -327,6 +363,13 @@ const repoPadrao = location.hostname.endsWith('.github.io')
   ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}` : 'kardapvar-lab/cardapio-3d-demo';
 $('#repo').value = guardado('kardap-repo') || repoPadrao;
 $('#token').value = guardado('kardap-token');
+// link de configuração: cadastrar.html#token=... guarda o token neste aparelho e some da barra de endereço
+// (o que vem depois do # não vai pro servidor nem fica no histórico)
+const doLink = new URLSearchParams(location.hash.slice(1)).get('token');
+if (doLink) {
+  $('#token').value = doLink.trim();
+  history.replaceState(null, '', location.pathname + location.search);
+}
 $('#conexao').open = !$('#token').value;
 
 async function gh(caminho, opcoes = {}) {
@@ -358,6 +401,7 @@ $('#testar').addEventListener('click', async () => {
   }
   atualizarPublicar();
 });
+if (doLink) $('#testar').click();
 
 function atualizarPublicar() {
   const p = cardapio && produto();

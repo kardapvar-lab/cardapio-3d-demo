@@ -64,13 +64,16 @@ function recortar(root, { cx, cz, r }) {
   }
 }
 
-// Tira o tampo da mesa que o scan pega em volta do prato: entre as superfícies quase horizontais,
-// a mesa é a mais baixa com bastante área. Some tudo até 2 faixas acima dela (faixa = 0,5% do
-// tamanho do scan: num scan de 40 cm, uns 4 mm), então a comida rasa (o miolo de uma pizza) fica.
+// Tira o tampo da mesa que o scan pega em volta do prato. A mesa quase nunca sai reta no scan
+// (1° ou 2° de inclinação já bastam pra um corte numa altura fixa deixar meia mesa), então acha o
+// plano dela: entre os planos formados pelas superfícies quase horizontais, a mesa é o mais baixo
+// com bastante área. Some tudo até um pouco acima desse plano (2 faixas, faixa = 0,5% do tamanho do
+// scan, ou mais se o scan da mesa for ondulado), a comida rasa (o miolo de uma pizza) fica, e o
+// modelo é girado pra mesa ficar reta. Devolve a altura da mesa depois do giro (pra maiorPeca).
 // Os limites são frações do tamanho, então funciona mesmo se o app não exportou em metros.
 function tirarMesa(root) {
   const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0];
-  const planos = []; // [altura, área] dos triângulos deitados
+  const deitados = []; // [x, y, z, área] do centro dos triângulos quase horizontais
   let xMin = Infinity, xMax = -Infinity, zMin = Infinity, zMax = -Infinity;
   for (const p of primitivas(root)) {
     const pos = p.getAttribute('POSITION'), tri = p.getIndices().getArray();
@@ -78,25 +81,76 @@ function tirarMesa(root) {
       pos.getElement(tri[t], a); pos.getElement(tri[t + 1], b); pos.getElement(tri[t + 2], c);
       const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
       const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx, dobro = Math.hypot(nx, ny, nz);
-      if (dobro > 0 && Math.abs(ny) / dobro > 0.95) planos.push([(a[1] + b[1] + c[1]) / 3, dobro / 2]);
+      if (dobro > 0 && Math.abs(ny) / dobro > 0.95) {
+        deitados.push([(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3, dobro / 2]);
+      }
       for (const v of [a, b, c]) { xMin = Math.min(xMin, v[0]); xMax = Math.max(xMax, v[0]); zMin = Math.min(zMin, v[2]); zMax = Math.max(zMax, v[2]); }
     }
   }
-  if (!planos.length) return;
+  if (deitados.length < 3) return null;
   const tamanho = Math.max(xMax - xMin, zMax - zMin), faixa = tamanho * 0.005;
-  const area = new Map();
-  for (const [y, ar] of planos) { const k = Math.floor(y / faixa); area.set(k, (area.get(k) || 0) + ar); }
-  const maior = Math.max(...area.values());
-  const mesa = Math.min(...[...area].filter(([, ar]) => ar >= maior * 0.15).map(([k]) => k)) * faixa;
-  const corte = mesa + 2 * faixa;
+
+  // planos y = ax + bz + c por 3 pontos sorteados (sorteio fixo: o mesmo scan dá sempre o mesmo
+  // resultado), só os quase horizontais; área de cada um = soma da área dos triângulos a 1 faixa dele
+  const amostra = deitados.length > 4000 ? deitados.filter((_, i) => i % Math.ceil(deitados.length / 4000) === 0) : deitados;
+  let semente = 12345;
+  const sorteio = () => (semente = (semente * 16807) % 2147483647) % amostra.length;
+  const planos = [];
+  for (let k = 0; k < 400; k++) {
+    const [p, q, r] = [amostra[sorteio()], amostra[sorteio()], amostra[sorteio()]];
+    const det = (q[0] - p[0]) * (r[2] - p[2]) - (r[0] - p[0]) * (q[2] - p[2]);
+    if (Math.abs(det) < tamanho * tamanho * 1e-4) continue; // pontos quase em linha
+    const pa = ((q[1] - p[1]) * (r[2] - p[2]) - (r[1] - p[1]) * (q[2] - p[2])) / det;
+    const pb = ((q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1])) / det;
+    if (Math.hypot(pa, pb) > 0.3) continue; // mais de ~17°: não é mesa
+    const pc = p[1] - pa * p[0] - pb * p[2];
+    let area = 0, alturaMedia = 0;
+    for (const [x, y, z, ar] of amostra) if (Math.abs(y - (pa * x + pb * z + pc)) < faixa) { area += ar; alturaMedia += ar * y; }
+    planos.push({ a: pa, b: pb, c: pc, area, altura: alturaMedia / area });
+  }
+  if (!planos.length) return null;
+  const maior = Math.max(...planos.map((p) => p.area));
+  const mesa = planos.filter((p) => p.area >= maior * 0.15).sort((p, q) => p.altura - q.altura)[0];
+
+  // acerta o plano com todos os pontos perto dele (mínimos quadrados) e mede o quanto a mesa ondula
+  const perto = deitados.filter(([x, y, z]) => Math.abs(y - (mesa.a * x + mesa.b * z + mesa.c)) < 2 * faixa);
+  let [sxx, sxz, szz, sx, sz, sw, sxy, szy, sy] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (const [x, y, z, w] of perto) {
+    sxx += w * x * x; sxz += w * x * z; szz += w * z * z; sx += w * x; sz += w * z; sw += w;
+    sxy += w * x * y; szy += w * z * y; sy += w * y;
+  }
+  const m = [[sxx, sxz, sx], [sxz, szz, sz], [sx, sz, sw]], v = [sxy, szy, sy];
+  const d = (M) => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+  const D = d(m);
+  const plano = Math.abs(D) > 1e-30
+    ? [0, 1, 2].map((k) => d(m.map((linha, i) => linha.map((x, j) => (j === k ? v[i] : x)))) / D)
+    : [mesa.a, mesa.b, mesa.c];
+  const acima = (x, y, z) => (y - (plano[0] * x + plano[1] * z + plano[2])) / Math.hypot(plano[0], plano[1], 1);
+  let quad = 0, peso = 0;
+  for (const [x, y, z, w] of perto) { quad += w * acima(x, y, z) ** 2; peso += w; }
+  const corte = Math.max(2 * faixa, 3 * Math.sqrt(quad / (peso || 1)));
+
   for (const p of primitivas(root)) {
     const pos = p.getAttribute('POSITION'), tri = p.getIndices().getArray(), fica = [];
     for (let t = 0; t < tri.length; t += 3) {
       pos.getElement(tri[t], a); pos.getElement(tri[t + 1], b); pos.getElement(tri[t + 2], c);
-      if ((a[1] + b[1] + c[1]) / 3 > corte) fica.push(tri[t], tri[t + 1], tri[t + 2]);
+      if (acima((a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3) > corte) fica.push(tri[t], tri[t + 1], tri[t + 2]);
     }
     p.getIndices().setArray(new Uint32Array(fica));
   }
+
+  // gira pra mesa ficar reta: leva a normal do plano (-a, 1, -b) pra (0, 1, 0)
+  const l = Math.hypot(plano[0], plano[1], 1), n = [-plano[0] / l, 1 / l, -plano[1] / l];
+  const eixo = [-n[2], 0, n[0]], sen = Math.hypot(eixo[0], eixo[2]), cos = n[1]; // n × (0, 1, 0)
+  if (sen > 1e-6) {
+    const k = [eixo[0] / sen, 0, eixo[2] / sen];
+    cadaVertice(root, (q) => { // Rodrigues
+      const kq = k[0] * q[0] + k[2] * q[2];
+      const cr = [k[1] * q[2] - k[2] * q[1], k[2] * q[0] - k[0] * q[2], k[0] * q[1] - k[1] * q[0]];
+      return [0, 1, 2].map((i) => q[i] * cos + cr[i] * sen + k[i] * kq * (1 - cos));
+    });
+  }
+  return plano[2] / l; // a origem do plano depois do giro: a mesa fica em y = c / |n|
 }
 
 // Tira triângulos escuros (pela cor da textura nos vértices), menos os que estão dentro de foraDe.
@@ -143,8 +197,12 @@ function tirarVazias(root) {
   }
 }
 
-function maiorPeca(root) {
+// Fica só a maior peça conectada. Depois de tirar a mesa (yMesa), "maior" é a de mais volume acima
+// da mesa, não a de mais triângulos: sobra de mesa é rasa e não pode ganhar da laranja.
+function maiorPeca(root, yMesa = null) {
+  const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0];
   for (const p of primitivas(root)) {
+    const pos = p.getAttribute('POSITION');
     const tri = Array.from(p.getIndices().getArray());
     const { id, total } = idPorPosicao(p.getAttribute('POSITION'), 1e4);
     const pai = new Int32Array(total).map((_, i) => i);
@@ -155,7 +213,17 @@ function maiorPeca(root) {
       pai[raiz(id[tri[i + 2]])] = a;
     }
     const conta = new Map();
-    for (let i = 0; i < tri.length; i += 3) { const r = raiz(id[tri[i]]); conta.set(r, (conta.get(r) || 0) + 1); }
+    for (let i = 0; i < tri.length; i += 3) {
+      const r = raiz(id[tri[i]]);
+      let valor = 1;
+      if (yMesa !== null) {
+        pos.getElement(tri[i], a); pos.getElement(tri[i + 1], b); pos.getElement(tri[i + 2], c);
+        const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
+        const area = Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx) / 2;
+        valor = area * Math.max(0, (a[1] + b[1] + c[1]) / 3 - yMesa);
+      }
+      conta.set(r, (conta.get(r) || 0) + valor);
+    }
     const maior = [...conta.entries()].sort((a, b) => b[1] - a[1])[0][0];
     p.getIndices().setArray(new Uint32Array(tri.filter((_, j) => raiz(id[tri[j - (j % 3)]]) === maior)));
   }
@@ -191,10 +259,10 @@ export async function etapa(doc, e, imagens) {
   await achatar(doc);
   if (e.recorte) recortar(root, e.recorte);
   await doc.transform(dedup(), join(), weld({}), prune());
-  if (e.tirarMesa) tirarMesa(root);
+  const yMesa = e.tirarMesa ? tirarMesa(root) : null;
   if (e.escuro) await tirarEscuro(root, e.escuro, e.foraDe, imagens);
   tirarVazias(root);
-  if (e.maiorPeca) maiorPeca(root);
+  if (e.maiorPeca) maiorPeca(root, yMesa ?? null);
   await doc.transform(prune());
   const reduzir = e.reduzir === 'auto' ? Math.min(1, TRIANGULOS / triangulos(doc)) : e.reduzir;
   if (reduzir && reduzir < 1) {
@@ -249,7 +317,12 @@ async function fecharFundo(doc, imagens) {
     const tex = p.getMaterial() && p.getMaterial().getBaseColorTexture();
     let img = null;
     if (tex && uv && imagens && imagens.decodificar) { try { img = await imagens.decodificar(tex.getImage()); } catch (e) { img = null; } }
+    // só os vértices que ainda estão em algum triângulo: tirarMesa corta os triângulos da mesa,
+    // mas os vértices dela continuam no arquivo e a tampa sairia do tamanho da mesa
+    const usados = new Uint8Array(pos.getCount());
+    for (const i of p.getIndices().getArray()) usados[i] = 1;
     for (let i = 0; i < pos.getCount(); i++) {
+      if (!usados[i]) continue;
       pos.getElement(i, v);
       pts.push([v[0], v[2]]); // contorno do prato inteiro (a borda costuma ser mais larga que a base)
       if (v[1] > limite) continue;
