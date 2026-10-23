@@ -20,6 +20,7 @@ export const TRIANGULOS = 60000; // "reduzir": "auto" deixa mais ou menos isso (
 //   tirarMesa: tira o tampo da mesa em volta (a superfície plana mais baixa, fora do prato)
 //   diametro: maior medida horizontal real em metros (sem isso o scan já está em metros)
 //   nivelar: deixa o prato reto (scan torto)       abaixoDe: tira o que está abaixo dessa altura (m, da base)
+//   assarCores: cor dos vértices vira textura (iPhone)   prato: põe um prato branco embaixo ({diametro, altura} em m)
 
 const primitivas = (root) => root.listMeshes().flatMap((m) => m.listPrimitives());
 
@@ -218,6 +219,152 @@ function cortarAbaixo(root, abaixoDe) {
   }
 }
 
+// Passa a cor dos vértices (COLOR_0) para uma textura. Alguns scans guardam a cor só nos vértices,
+// e o Quick Look do iPhone ignora isso (o prato aparece cinza). Mapeamento pensado para pratos:
+// faces viradas para cima/baixo vão para uma projeção de cima (75% de baixo da imagem... no topo da
+// textura), as laterais para uma faixa cilíndrica (os 25% de baixo). Feito ANTES de reduzir, para a
+// textura guardar o detalhe de cor de todos os triângulos originais.
+async function assarCores(doc, imagens, tamanho = 2048) {
+  if (!imagens || !imagens.codificar) return;
+  const root = doc.getRoot();
+  const buf = root.listBuffers()[0];
+  const srgb = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+  for (const p of primitivas(root)) {
+    const cor = p.getAttribute('COLOR_0');
+    if (!cor || (p.getMaterial() && p.getMaterial().getBaseColorTexture())) continue;
+    const pos = p.getAttribute('POSITION'), nor = p.getAttribute('NORMAL');
+    const tri = p.getIndices().getArray();
+    const n = pos.getCount(), P = new Float32Array(n * 3), C = new Float32Array(n * 3), v = [0, 0, 0], c4 = [0, 0, 0, 0];
+    const N = nor ? new Float32Array(n * 3) : null;
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity, zMin = Infinity, zMax = -Infinity;
+    for (let i = 0; i < n; i++) {
+      pos.getElement(i, v); P.set(v, i * 3);
+      xMin = Math.min(xMin, v[0]); xMax = Math.max(xMax, v[0]); yMin = Math.min(yMin, v[1]); yMax = Math.max(yMax, v[1]);
+      zMin = Math.min(zMin, v[2]); zMax = Math.max(zMax, v[2]);
+      cor.getElement(i, c4); C[i * 3] = c4[0]; C[i * 3 + 1] = c4[1]; C[i * 3 + 2] = c4[2];
+      if (N) { nor.getElement(i, v); N.set(v, i * 3); }
+    }
+    const S = Math.max(xMax - xMin, zMax - zMin) || 1, cx = (xMin + xMax) / 2, cz = (zMin + zMax) / 2, H = (yMax - yMin) || 1;
+    const TOPO = 0.75; // fração da altura da textura para a vista de cima
+    const uvCima = (i) => [0.005 + 0.99 * (P[i * 3] - xMin) / S, (0.005 + 0.99 * (P[i * 3 + 2] - zMin) / S) * TOPO];
+    const uvLado = (i) => [(Math.atan2(P[i * 3 + 2] - cz, P[i * 3] - cx) + Math.PI) / (2 * Math.PI), TOPO + 0.005 + 0.24 * (P[i * 3 + 1] - yMin) / H];
+    // novos vértices: (vértice original, grupo, volta) -> índice
+    const mapa = new Map(), novoP = [], novoN = [], novoUV = [], novoC = [], novoTri = [], grupos = [];
+    const pegar = (i, grupo, uv) => {
+      const k = `${i}|${grupo}|${uv[0] >= 1 ? 1 : 0}`;
+      let j = mapa.get(k);
+      if (j === undefined) {
+        j = novoP.length / 3; mapa.set(k, j);
+        novoP.push(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]);
+        if (N) novoN.push(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]);
+        novoUV.push(uv[0], uv[1]); novoC.push(C[i * 3], C[i * 3 + 1], C[i * 3 + 2]);
+      }
+      return j;
+    };
+    for (let t = 0; t < tri.length; t += 3) {
+      const [a, b, c] = [tri[t], tri[t + 1], tri[t + 2]];
+      const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2];
+      const wx = P[c * 3] - P[a * 3], wy = P[c * 3 + 1] - P[a * 3 + 1], wz = P[c * 3 + 2] - P[a * 3 + 2];
+      const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx, l = Math.hypot(nx, ny, nz) || 1;
+      const lado = Math.abs(ny / l) < 0.35;
+      // 0 = virado para cima, 1 = lateral, 2 = virado para baixo (usa a projeção de cima, mas é pintado
+      // primeiro, para a parte de cima ganhar quando as duas caem no mesmo lugar da textura)
+      const grupo = lado ? 1 : ny > 0 ? 0 : 2;
+      let uvs = [a, b, c].map((i) => (lado ? uvLado(i) : uvCima(i)));
+      if (lado) { // triângulo atravessando a emenda do cilindro: os de u pequeno vão para u + 1
+        const us = uvs.map((q) => q[0]);
+        if (Math.max(...us) - Math.min(...us) > 0.5) uvs = uvs.map((q) => (q[0] < 0.5 ? [q[0] + 1, q[1]] : q));
+      }
+      novoTri.push(...[a, b, c].map((i, k) => pegar(i, grupo, uvs[k])));
+      grupos.push(grupo);
+    }
+    // pinta a textura: cada triângulo com a cor dos vértices interpolada
+    const W = tamanho, Ht = tamanho, rgba = new Uint8ClampedArray(W * Ht * 4), cheio = new Uint8Array(W * Ht);
+    const ordem = [...grupos.keys()].sort((x, y) => grupos[y] - grupos[x]); // baixo, lado, cima
+    for (const g of ordem) {
+      const t = g * 3;
+      const k = [novoTri[t], novoTri[t + 1], novoTri[t + 2]];
+      const q = k.map((j) => [novoUV[j * 2] * W, novoUV[j * 2 + 1] * Ht]);
+      const area = (q[1][0] - q[0][0]) * (q[2][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[2][0] - q[0][0]);
+      const cores = k.map((j) => [novoC[j * 3], novoC[j * 3 + 1], novoC[j * 3 + 2]]);
+      const x0 = Math.floor(Math.min(q[0][0], q[1][0], q[2][0])), x1 = Math.ceil(Math.max(q[0][0], q[1][0], q[2][0]));
+      const y0 = Math.max(0, Math.floor(Math.min(q[0][1], q[1][1], q[2][1]))), y1 = Math.min(Ht - 1, Math.ceil(Math.max(q[0][1], q[1][1], q[2][1])));
+      if (Math.abs(area) < 1e-9) { // triângulo minúsculo: pinta o pixel do centro
+        const px = ((Math.floor((q[0][0] + q[1][0] + q[2][0]) / 3) % W) + W) % W, py = Math.min(Ht - 1, Math.max(0, Math.floor((q[0][1] + q[1][1] + q[2][1]) / 3)));
+        const o = py * W + px; if (!cheio[o]) { for (let i = 0; i < 3; i++) rgba[o * 4 + i] = 255 * srgb((cores[0][i] + cores[1][i] + cores[2][i]) / 3); rgba[o * 4 + 3] = 255; cheio[o] = 1; }
+        continue;
+      }
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const sx = x + 0.5, sy = y + 0.5;
+        const l0 = ((q[1][0] - sx) * (q[2][1] - sy) - (q[1][1] - sy) * (q[2][0] - sx)) / area;
+        const l1 = ((q[2][0] - sx) * (q[0][1] - sy) - (q[2][1] - sy) * (q[0][0] - sx)) / area;
+        const l2 = 1 - l0 - l1;
+        if (l0 < -0.05 || l1 < -0.05 || l2 < -0.05) continue;
+        const o = y * W + (((x % W) + W) % W);
+        for (let i = 0; i < 3; i++) rgba[o * 4 + i] = 255 * srgb(Math.max(0, Math.min(1, l0 * cores[0][i] + l1 * cores[1][i] + l2 * cores[2][i])));
+        rgba[o * 4 + 3] = 255; cheio[o] = 1;
+      }
+    }
+    // espalha as bordas para os vazios (evita linhas escuras nas emendas e ao reduzir a textura)
+    for (let passo = 0; passo < 8; passo++) {
+      const novos = [];
+      for (let y = 0; y < Ht; y++) for (let x = 0; x < W; x++) {
+        const o = y * W + x; if (cheio[o]) continue;
+        let r = 0, g = 0, bl = 0, q = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= Ht) continue;
+          const o2 = yy * W + xx; if (!cheio[o2]) continue;
+          r += rgba[o2 * 4]; g += rgba[o2 * 4 + 1]; bl += rgba[o2 * 4 + 2]; q++;
+        }
+        if (q) novos.push([o, r / q, g / q, bl / q]);
+      }
+      for (const [o, r, g, bl] of novos) { rgba[o * 4] = r; rgba[o * 4 + 1] = g; rgba[o * 4 + 2] = bl; rgba[o * 4 + 3] = 255; cheio[o] = 1; }
+    }
+    const bytes = await imagens.codificar(rgba, W, Ht);
+    const textura = doc.createTexture('cores').setImage(bytes).setMimeType('image/jpeg');
+    const material = (p.getMaterial() ? p.getMaterial().clone() : doc.createMaterial('cores')).setBaseColorTexture(textura);
+    const novo = (tipo, arr) => doc.createAccessor().setType(tipo).setArray(arr).setBuffer(buf);
+    p.setAttribute('POSITION', novo('VEC3', new Float32Array(novoP)));
+    if (N) p.setAttribute('NORMAL', novo('VEC3', new Float32Array(novoN)));
+    p.setAttribute('TEXCOORD_0', novo('VEC2', new Float32Array(novoUV)));
+    p.setAttribute('COLOR_0', null);
+    p.setIndices(novo('SCALAR', new Uint32Array(novoTri)));
+    p.setMaterial(material);
+  }
+}
+
+// Prato de cerâmica branca embaixo da comida (para scans que vieram sem prato). Medidas em metros.
+function adicionarPrato(doc, { diametro = 0.36, altura = 0.012, cor = [0.93, 0.92, 0.9] } = {}) {
+  const root = doc.getRoot();
+  const buf = root.listBuffers()[0];
+  const R = diametro / 2, h = altura;
+  // perfil (raio, altura): fundo, base, borda subindo e a face de cima até o centro
+  const perfil = [[0, 0], [R * 0.6, 0], [R * 0.64, h * 0.25], [R * 0.66, h * 0.35], [R * 0.93, h * 0.75], [R, h * 1.25],
+    [R * 0.995, h * 1.4], [R * 0.95, h * 1.2], [R * 0.91, h], [R * 0.5, h], [0, h]];
+  const seg = 96, P = [], tri = [];
+  for (const [r, y] of perfil) for (let s = 0; s < seg; s++) {
+    const a = (s / seg) * Math.PI * 2;
+    P.push(Math.cos(a) * r, y, Math.sin(a) * r);
+  }
+  for (let i = 0; i < perfil.length - 1; i++) for (let s = 0; s < seg; s++) {
+    const a = i * seg + s, b = i * seg + ((s + 1) % seg), c = (i + 1) * seg + s, d = (i + 1) * seg + ((s + 1) % seg);
+    tri.push(a, c, b, b, c, d);
+  }
+  // a comida sobe para ficar apoiada no prato
+  for (const node of root.listNodes()) if (node.getMesh()) {
+    for (const p of node.getMesh().listPrimitives()) {
+      const pos = p.getAttribute('POSITION'), v = [0, 0, 0];
+      for (let i = 0; i < pos.getCount(); i++) { pos.getElement(i, v); v[1] += h; pos.setElement(i, v); }
+    }
+  }
+  const material = doc.createMaterial('prato').setBaseColorFactor([...cor, 1]).setMetallicFactor(0).setRoughnessFactor(0.4);
+  const prim = doc.createPrimitive()
+    .setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(new Float32Array(P)).setBuffer(buf))
+    .setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint32Array(tri)).setBuffer(buf))
+    .setMaterial(material);
+  root.listScenes()[0].addChild(doc.createNode('prato').setMesh(doc.createMesh('prato').addPrimitive(prim)));
+}
+
 // Tira triângulos escuros (pela cor da textura nos vértices), menos os que estão dentro de foraDe.
 async function tirarEscuro(root, limite, foraDe, imagens) {
   for (const p of primitivas(root)) {
@@ -331,6 +478,7 @@ export async function etapa(doc, e, imagens) {
   tirarVazias(root);
   if (e.maiorPeca) maiorPeca(root, yMesa ?? null);
   await doc.transform(prune());
+  if (e.assarCores) await assarCores(doc, imagens);
   const reduzir = e.reduzir === 'auto' ? Math.min(1, TRIANGULOS / triangulos(doc)) : e.reduzir;
   if (reduzir && reduzir < 1) {
     await MeshoptSimplifier.ready;
@@ -345,6 +493,7 @@ export async function etapa(doc, e, imagens) {
   const k = e.diametro ? e.diametro / Math.max(b.max[0] - b.min[0], b.max[2] - b.min[2]) : 1;
   const cx = (b.max[0] + b.min[0]) / 2, cz = (b.max[2] + b.min[2]) / 2, y0 = b.min[1];
   cadaVertice(root, ([x, y, z]) => [(x - cx) * k, (y - y0) * k, (z - cz) * k]);
+  if (e.prato) adicionarPrato(doc, e.prato === true ? {} : e.prato);
 }
 
 // Contorno convexo (cadeia monótona) de pontos [x, z].

@@ -16,6 +16,7 @@ export async function renderizar(doc, { elevacao = 35, largura = 800, altura = 6
       const material = p.getMaterial();
       const tex = material?.getBaseColorTexture();
       const cor = material?.getBaseColorFactor() ?? [1, 1, 1, 1];
+      const duplaFace = material ? material.getDoubleSided() : true; // face única: só desenha de frente (ex.: tampa do fundo)
       let imagem = null;
       if (tex) {
         const { data, info } = await sharp(Buffer.from(tex.getImage())).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
@@ -28,7 +29,7 @@ export async function renderizar(doc, { elevacao = 35, largura = 800, altura = 6
         pos.getElement(i, v); pontos.push(ver(v));
         if (uv) { uv.getElement(i, t); uvs.push([t[0], t[1]]); }
       }
-      for (let i = 0; i < ind.length; i += 3) triangulos.push({ k: [ind[i], ind[i + 1], ind[i + 2]], pontos, uvs, imagem, cor });
+      for (let i = 0; i < ind.length; i += 3) triangulos.push({ k: [ind[i], ind[i + 1], ind[i + 2]], pontos, uvs, imagem, cor, duplaFace });
     }
   }
 
@@ -46,7 +47,7 @@ export async function renderizar(doc, { elevacao = 35, largura = 800, altura = 6
   for (let i = 0; i < largura * altura; i++) px.set(fundo, i * 3);
   const prof = new Float32Array(largura * altura).fill(-Infinity);
 
-  for (const { k, pontos, uvs, imagem, cor } of triangulos) {
+  for (const { k, pontos, uvs, imagem, cor, duplaFace } of triangulos) {
     const [a, b, c] = k.map((j) => tela(pontos[j]));
     const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
     if (Math.abs(area) < 1e-9) continue;
@@ -55,6 +56,7 @@ export async function renderizar(doc, { elevacao = 35, largura = 800, altura = 6
     const u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]], w = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
     const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
     const l = Math.hypot(...n) || 1;
+    if (!duplaFace && n[2] <= 0) continue; // de costas para a câmera
     const luz = 0.55 + 0.45 * Math.abs((n[1] * 0.6 + n[2] * 0.8) / l);
 
     const x0 = Math.max(0, Math.floor(Math.min(a[0], b[0], c[0]))), x1 = Math.min(largura - 1, Math.ceil(Math.max(a[0], b[0], c[0])));

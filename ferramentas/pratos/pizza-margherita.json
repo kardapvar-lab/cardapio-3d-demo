@@ -1,0 +1,39 @@
+{
+  "produto": {
+    "id": "pizza-margherita",
+    "nome": "Pizza Margherita",
+    "categoria": "pizzas",
+    "descricao": "A clássica napolitana: molho de tomate italiano, muçarela fior di latte, manjericão fresco e azeite extravirgem. Borda alta e tostada no forno a lenha.",
+    "preco": 59.9,
+    "foto": "fotos/pizza-margherita.jpg",
+    "modelo": "modelos/pizza-margherita.glb",
+    "medida": "Pizza Ø 30 cm · prato Ø 33 cm",
+    "peso_g": 520,
+    "ingredientes": [
+      "Massa de fermentação natural",
+      "Molho de tomate",
+      "Muçarela fior di latte",
+      "Manjericão",
+      "Azeite extravirgem"
+    ],
+    "destaque": "Mais pedida",
+    "alergenos": [
+      "Glúten",
+      "Leite"
+    ],
+    "credito": {
+      "autor": "yoshimura.manufacturing",
+      "url": "https://sketchfab.com/3d-models/pizza-margherita-058dc197d2b5417a8f178cca22324442",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "nivelar": true,
+      "maiorPeca": true,
+      "reduzir": 0.15,
+      "diametro": 0.33
+    }
+  ]
+}

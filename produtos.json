@@ -51,6 +51,61 @@
         "url": "https://sketchfab.com/3d-models/pizza-40d50989fec1460f8838b608d999ccd0",
         "licenca": "CC BY 4.0"
       }
+    },
+    {
+      "id": "pizza-margherita",
+      "nome": "Pizza Margherita",
+      "categoria": "pizzas",
+      "descricao": "A clássica napolitana: molho de tomate italiano, muçarela fior di latte, manjericão fresco e azeite extravirgem. Borda alta e tostada no forno a lenha.",
+      "preco": 59.9,
+      "foto": "fotos/pizza-margherita.jpg",
+      "modelo": "modelos/pizza-margherita.glb",
+      "medida": "Pizza Ø 30 cm · prato Ø 33 cm",
+      "peso_g": 520,
+      "ingredientes": [
+        "Massa de fermentação natural",
+        "Molho de tomate",
+        "Muçarela fior di latte",
+        "Manjericão",
+        "Azeite extravirgem"
+      ],
+      "destaque": "Mais pedida",
+      "alergenos": [
+        "Glúten",
+        "Leite"
+      ],
+      "credito": {
+        "autor": "yoshimura.manufacturing",
+        "url": "https://sketchfab.com/3d-models/pizza-margherita-058dc197d2b5417a8f178cca22324442",
+        "licenca": "CC BY 4.0"
+      }
+    },
+    {
+      "id": "pizza-queijos",
+      "nome": "Pizza Três Queijos",
+      "categoria": "pizzas",
+      "descricao": "Massa sem glúten, muçarela, cheddar e parmesão gratinados, finalizada com coentro fresco.",
+      "preco": 64.9,
+      "foto": "fotos/pizza-queijos.jpg",
+      "modelo": "modelos/pizza-queijos.glb",
+      "medida": "Pizza Ø 32 cm · prato Ø 36 cm",
+      "peso_g": 480,
+      "ingredientes": [
+        "Massa sem glúten",
+        "Muçarela",
+        "Cheddar",
+        "Parmesão",
+        "Coentro"
+      ],
+      "destaque": "Sem glúten",
+      "alergenos": [
+        "Leite"
+      ],
+      "credito": {
+        "autor": "Zios",
+        "url": "https://sketchfab.com/3d-models/margherita-pizza-4c6f580df80c421a8fda20cdfffa715c",
+        "licenca": "CC BY 4.0"
+      }
     }
   ]
 }

@@ -1,0 +1,42 @@
+{
+  "produto": {
+    "id": "pizza-queijos",
+    "nome": "Pizza Três Queijos",
+    "categoria": "pizzas",
+    "descricao": "Massa sem glúten, muçarela, cheddar e parmesão gratinados, finalizada com coentro fresco.",
+    "preco": 64.9,
+    "foto": "fotos/pizza-queijos.jpg",
+    "modelo": "modelos/pizza-queijos.glb",
+    "medida": "Pizza Ø 32 cm · prato Ø 36 cm",
+    "peso_g": 480,
+    "ingredientes": [
+      "Massa sem glúten",
+      "Muçarela",
+      "Cheddar",
+      "Parmesão",
+      "Coentro"
+    ],
+    "destaque": "Sem glúten",
+    "alergenos": [
+      "Leite"
+    ],
+    "credito": {
+      "autor": "Zios",
+      "url": "https://sketchfab.com/3d-models/margherita-pizza-4c6f580df80c421a8fda20cdfffa715c",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "nivelar": true,
+      "maiorPeca": true,
+      "assarCores": true,
+      "reduzir": 0.06,
+      "diametro": 0.32,
+      "prato": {
+        "diametro": 0.36
+      }
+    }
+  ]
+}
