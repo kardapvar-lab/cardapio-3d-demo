@@ -381,7 +381,7 @@ async function iniciar(urlModelo, aoSair) {
 
   let textoAtual = '';
   const mostrar = (t) => { if (t !== textoAtual) { textoAtual = t; dica.textContent = t; } };
-  mostrar('A carregar o prato…');
+  mostrar('Carregando o prato…');
   btnMover.hidden = true;
 
   let renderer = null;

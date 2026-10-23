@@ -147,8 +147,9 @@ Para trocar o JSON estático pela API, basta mudar a URL do `fetch('produtos.jso
 
 ## Regerar ou mudar os modelos
 
-Os 5 pratos são scans reais (fotogrametria) do Sketchfab, licença CC BY 4.0: os autores estão
-creditados no rodapé do `index.html` (a licença exige). O script baixa os originais, recorta o fundo,
+Os pratos agora são scans nossos (Scaniverse), sem crédito a dar. Os 5 pratos da primeira demo eram
+scans do Sketchfab, licença CC BY 4.0, feitos com o script abaixo: se voltar a usar um modelo assim,
+o autor tem que ser creditado no rodapé do `index.html` (a licença exige). O script baixa os originais, recorta o fundo,
 põe em escala real, reduz triângulos e texturas e troca o material "unlit" do scan por um normal
 (o Quick Look do iPhone ignora malhas unlit). Resultado: 1,0 a 2,6 MB por prato.
 
