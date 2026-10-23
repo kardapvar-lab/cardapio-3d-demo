@@ -106,6 +106,104 @@
         "url": "https://sketchfab.com/3d-models/margherita-pizza-4c6f580df80c421a8fda20cdfffa715c",
         "licenca": "CC BY 4.0"
       }
+    },
+    {
+      "id": "bisteca-fiorentina",
+      "nome": "Bisteca Fiorentina",
+      "categoria": "pratos",
+      "descricao": "T-bone de 1 kg grelhado na brasa, servido mal passado e fatiado na travessa, com flor de sal e azeite. Serve 2 pessoas.",
+      "preco": 189.9,
+      "foto": "fotos/bisteca-fiorentina.jpg",
+      "modelo": "modelos/bisteca-fiorentina.glb",
+      "medida": "Travessa Ø 36 cm · serve 2",
+      "peso_g": 1000,
+      "ingredientes": [
+        "T-bone bovino",
+        "Flor de sal",
+        "Pimenta-do-reino",
+        "Azeite extravirgem"
+      ],
+      "destaque": "Para dividir",
+      "alergenos": [],
+      "credito": {
+        "autor": "shahriyarshahrabi",
+        "url": "https://sketchfab.com/models/969285ae788c41cd914387cecf088708",
+        "licenca": "CC BY 4.0"
+      }
+    },
+    {
+      "id": "picanha-executivo",
+      "nome": "Picanha na Chapa",
+      "categoria": "pratos",
+      "descricao": "Picanha grelhada no ponto, arroz vermelho, batata-doce assada e salada de tomate com melancia.",
+      "preco": 69.9,
+      "foto": "fotos/picanha-executivo.jpg",
+      "modelo": "modelos/picanha-executivo.glb",
+      "medida": "Prato Ø 32 cm",
+      "peso_g": 520,
+      "ingredientes": [
+        "Picanha",
+        "Arroz vermelho",
+        "Batata-doce",
+        "Tomate",
+        "Melancia",
+        "Pepino"
+      ],
+      "destaque": "Mais pedido",
+      "alergenos": [],
+      "credito": {
+        "autor": "JFN (db4)",
+        "url": "https://sketchfab.com/models/95c7fef786494b77bfa6cb3d9f66858e",
+        "licenca": "CC BY 4.0"
+      }
+    },
+    {
+      "id": "picanha-fatiada",
+      "nome": "Picanha Fatiada na Pedra",
+      "categoria": "pratos",
+      "descricao": "Peça de picanha assada inteira e fatiada, servida na pedra quente com sal grosso. Serve 2 pessoas.",
+      "preco": 119.9,
+      "foto": "fotos/picanha-fatiada.jpg",
+      "modelo": "modelos/picanha-fatiada.glb",
+      "medida": "Pedra Ø 28 cm · serve 2",
+      "peso_g": 600,
+      "ingredientes": [
+        "Picanha",
+        "Sal grosso"
+      ],
+      "destaque": null,
+      "alergenos": [],
+      "credito": {
+        "autor": "ceroeurosproducciones",
+        "url": "https://sketchfab.com/models/ebceabd3e6c94e28a8e9e8a7af839298",
+        "licenca": "CC BY 4.0"
+      }
+    },
+    {
+      "id": "brigadeiros",
+      "nome": "Brigadeiros Gourmet",
+      "categoria": "sobremesas",
+      "descricao": "Seis brigadeiros de chocolate belga, enrolados à mão e cobertos com chocolate granulado, na tábua.",
+      "preco": 24.9,
+      "foto": "fotos/brigadeiros.jpg",
+      "modelo": "modelos/brigadeiros.glb",
+      "medida": "Tábua 16 × 9 cm · 6 unidades",
+      "peso_g": 150,
+      "ingredientes": [
+        "Leite condensado",
+        "Chocolate belga",
+        "Manteiga",
+        "Chocolate granulado"
+      ],
+      "destaque": null,
+      "alergenos": [
+        "Leite"
+      ],
+      "credito": {
+        "autor": "magicgo",
+        "url": "https://sketchfab.com/models/f27c5bccb70e4b49b7b1ebed36553836",
+        "licenca": "CC BY 4.0"
+      }
     }
   ]
 }

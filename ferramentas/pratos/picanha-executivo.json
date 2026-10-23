@@ -1,0 +1,46 @@
+{
+  "produto": {
+    "id": "picanha-executivo",
+    "nome": "Picanha na Chapa",
+    "categoria": "pratos",
+    "descricao": "Picanha grelhada no ponto, arroz vermelho, batata-doce assada e salada de tomate com melancia.",
+    "preco": 69.9,
+    "foto": "fotos/picanha-executivo.jpg",
+    "modelo": "modelos/picanha-executivo.glb",
+    "medida": "Prato Ø 32 cm",
+    "peso_g": 520,
+    "ingredientes": [
+      "Picanha",
+      "Arroz vermelho",
+      "Batata-doce",
+      "Tomate",
+      "Melancia",
+      "Pepino"
+    ],
+    "destaque": "Mais pedido",
+    "alergenos": [],
+    "credito": {
+      "autor": "JFN (db4)",
+      "url": "https://sketchfab.com/models/95c7fef786494b77bfa6cb3d9f66858e",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "nivelar": true,
+      "maiorPeca": true,
+      "baixoLiso": {
+        "cor": [
+          0.82,
+          0.81,
+          0.78
+        ],
+        "escuro": 60,
+        "borda": 0.86,
+        "limiar": -0.6
+      },
+      "reduzir": "auto"
+    }
+  ]
+}

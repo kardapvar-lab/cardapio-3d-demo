@@ -1,0 +1,35 @@
+{
+  "produto": {
+    "id": "brigadeiros",
+    "nome": "Brigadeiros Gourmet",
+    "categoria": "sobremesas",
+    "descricao": "Seis brigadeiros de chocolate belga, enrolados à mão e cobertos com chocolate granulado, na tábua.",
+    "preco": 24.9,
+    "foto": "fotos/brigadeiros.jpg",
+    "modelo": "modelos/brigadeiros.glb",
+    "medida": "Tábua 16 × 9 cm · 6 unidades",
+    "peso_g": 150,
+    "ingredientes": [
+      "Leite condensado",
+      "Chocolate belga",
+      "Manteiga",
+      "Chocolate granulado"
+    ],
+    "destaque": null,
+    "alergenos": [
+      "Leite"
+    ],
+    "credito": {
+      "autor": "magicgo",
+      "url": "https://sketchfab.com/models/f27c5bccb70e4b49b7b1ebed36553836",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "diametro": 0.16,
+      "reduzir": 0.2
+    }
+  ]
+}

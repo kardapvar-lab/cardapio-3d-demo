@@ -1,0 +1,40 @@
+{
+  "produto": {
+    "id": "bisteca-fiorentina",
+    "nome": "Bisteca Fiorentina",
+    "categoria": "pratos",
+    "descricao": "T-bone de 1 kg grelhado na brasa, servido mal passado e fatiado na travessa, com flor de sal e azeite. Serve 2 pessoas.",
+    "preco": 189.9,
+    "foto": "fotos/bisteca-fiorentina.jpg",
+    "modelo": "modelos/bisteca-fiorentina.glb",
+    "medida": "Travessa Ø 36 cm · serve 2",
+    "peso_g": 1000,
+    "ingredientes": [
+      "T-bone bovino",
+      "Flor de sal",
+      "Pimenta-do-reino",
+      "Azeite extravirgem"
+    ],
+    "destaque": "Para dividir",
+    "alergenos": [],
+    "credito": {
+      "autor": "shahriyarshahrabi",
+      "url": "https://sketchfab.com/models/969285ae788c41cd914387cecf088708",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "refazerNormais": true,
+      "cores": {
+        "Plate": [
+          0.8,
+          0.8,
+          0.77
+        ]
+      },
+      "diametro": 0.36
+    }
+  ]
+}

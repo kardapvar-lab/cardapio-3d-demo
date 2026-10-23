@@ -1,0 +1,38 @@
+{
+  "produto": {
+    "id": "picanha-fatiada",
+    "nome": "Picanha Fatiada na Pedra",
+    "categoria": "pratos",
+    "descricao": "Peça de picanha assada inteira e fatiada, servida na pedra quente com sal grosso. Serve 2 pessoas.",
+    "preco": 119.9,
+    "foto": "fotos/picanha-fatiada.jpg",
+    "modelo": "modelos/picanha-fatiada.glb",
+    "medida": "Pedra Ø 28 cm · serve 2",
+    "peso_g": 600,
+    "ingredientes": [
+      "Picanha",
+      "Sal grosso"
+    ],
+    "destaque": null,
+    "alergenos": [],
+    "credito": {
+      "autor": "ceroeurosproducciones",
+      "url": "https://sketchfab.com/models/ebceabd3e6c94e28a8e9e8a7af839298",
+      "licenca": "CC BY 4.0"
+    }
+  },
+  "fotoAutomatica": true,
+  "etapas": [
+    {
+      "cores": {
+        "Material.001": [
+          0.16,
+          0.16,
+          0.17
+        ]
+      },
+      "diametro": 0.28
+    }
+  ],
+  "manterMaterial": true
+}

@@ -7,7 +7,7 @@
 // o que mexe em imagem vem de fora, em `imagens`:
 //   decodificar(bytes) -> { data: RGBA, info: { width, height } }   (só pra etapa "escuro")
 //   comprimir(doc)     -> reduz as texturas pra TEXTURA px em JPEG
-import { weld, simplify, prune, dedup, getBounds, flatten, join } from '@gltf-transform/functions';
+import { weld, simplify, prune, dedup, getBounds, flatten, join, compactPrimitive } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
 
 export const TEXTURA = 1024;
@@ -21,6 +21,11 @@ export const TRIANGULOS = 60000; // "reduzir": "auto" deixa mais ou menos isso (
 //   diametro: maior medida horizontal real em metros (sem isso o scan já está em metros)
 //   nivelar: deixa o prato reto (scan torto)       abaixoDe: tira o que está abaixo dessa altura (m, da base)
 //   assarCores: cor dos vértices vira textura (iPhone)   prato: põe um prato branco embaixo ({diametro, altura} em m)
+//   refazerNormais: joga fora as normais do arquivo (scan "solto", um vértice por canto de triângulo) e
+//     recalcula suaves; assim os vértices se juntam e o "reduzir" funciona
+//   baixoLiso: [r, g, b] ou {cor, escuro, borda, ate} pinta de uma cor lisa os triângulos virados para
+//     baixo e, com escuro (0-255), os escuros da borda do prato (a "saia" preta que o scan inventa embaixo)
+//   cores: troca a cor de um material pelo nome, ex.: {"Plate": [0.8, 0.8, 0.77]} (0-1, RGB)
 
 const primitivas = (root) => root.listMeshes().flatMap((m) => m.listPrimitives());
 
@@ -29,6 +34,68 @@ function cadaVertice(root, f) {
   for (const p of primitivas(root)) {
     const pos = p.getAttribute('POSITION');
     for (let i = 0; i < pos.getCount(); i++) { pos.getElement(i, v); pos.setElement(i, f(v)); }
+  }
+}
+
+// Tira os conjuntos de UV que nenhuma textura usa (o Scaniverse exporta 10, só o primeiro serve).
+function tirarUVsSobrando(root) {
+  for (const p of primitivas(root)) {
+    const usados = new Set([0]);
+    const mat = p.getMaterial();
+    if (mat) for (const f of ['BaseColor', 'Normal', 'MetallicRoughness', 'Occlusion', 'Emissive']) {
+      if (mat[`get${f}Texture`]()) usados.add(mat[`get${f}TextureInfo`]().getTexCoord());
+    }
+    for (const sem of p.listSemantics()) {
+      const m = /^TEXCOORD_(\d+)$/.exec(sem);
+      if (m && !usados.has(+m[1])) p.setAttribute(sem, null);
+    }
+  }
+}
+
+// O fundo do prato que o scan não viu (vem preto) vai para um material liso, sem textura: os triângulos
+// virados para baixo e, se tiver `escuro` (brilho 0-255), os escuros da borda do prato (fora de `borda`
+// × raio e até `ate` m da base), onde o scan fecha a aba do prato com uma "saia" preta.
+async function pintarBaixo(doc, opc, imagens) {
+  const { cor, escuro = 0, borda = 0.9, ate = 0.035, limiar = -0.3 } = Array.isArray(opc) ? { cor: opc } : opc;
+  const root = doc.getRoot();
+  const B = getBounds(root.listScenes()[0]);
+  const cx = (B.max[0] + B.min[0]) / 2, cz = (B.max[2] + B.min[2]) / 2;
+  const R = Math.max(B.max[0] - B.min[0], B.max[2] - B.min[2]) / 2;
+  const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0], t = [0, 0];
+  let liso = null;
+  const buf = root.listBuffers()[0];
+  for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) {
+    const pos = p.getAttribute('POSITION'), uv = p.getAttribute('TEXCOORD_0'), tri = p.getIndices().getArray();
+    const tex = p.getMaterial()?.getBaseColorTexture();
+    const img = escuro && tex && uv ? await imagens.decodificar(tex.getImage()) : null;
+    const brilho = (i) => {
+      uv.getElement(i, t);
+      const { data, info } = img;
+      const x = Math.min(info.width - 1, Math.floor((((t[0] % 1) + 1) % 1) * info.width));
+      const y = Math.min(info.height - 1, Math.floor((((t[1] % 1) + 1) % 1) * info.height));
+      const k = (y * info.width + x) * 4;
+      return 0.299 * data[k] + 0.587 * data[k + 1] + 0.114 * data[k + 2];
+    };
+    const cima = [], baixo = [];
+    for (let k = 0; k < tri.length; k += 3) {
+      pos.getElement(tri[k], a); pos.getElement(tri[k + 1], b); pos.getElement(tri[k + 2], c);
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
+      const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+      let vai = ny / (Math.hypot(nx, ny, nz) || 1) < limiar;
+      if (!vai && img) {
+        const r = Math.hypot((a[0] + b[0] + c[0]) / 3 - cx, (a[2] + b[2] + c[2]) / 3 - cz);
+        vai = r > borda * R && (a[1] + b[1] + c[1]) / 3 - B.min[1] < ate &&
+          (brilho(tri[k]) + brilho(tri[k + 1]) + brilho(tri[k + 2])) / 3 < escuro;
+      }
+      (vai ? baixo : cima).push(tri[k], tri[k + 1], tri[k + 2]);
+    }
+    if (!baixo.length) continue;
+    liso ??= doc.createMaterial('baixo').setBaseColorFactor([cor[0], cor[1], cor[2], 1]);
+    p.getIndices().setArray(new Uint32Array(cima));
+    const q = doc.createPrimitive().setMaterial(liso)
+      .setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint32Array(baixo)).setBuffer(buf));
+    for (const sem of p.listSemantics()) if (!sem.startsWith('TEXCOORD')) q.setAttribute(sem, p.getAttribute(sem));
+    mesh.addPrimitive(q);
   }
 }
 
@@ -469,6 +536,12 @@ export const triangulos = (doc) => primitivas(doc.getRoot()).reduce((s, p) => s 
 export async function etapa(doc, e, imagens) {
   const root = doc.getRoot();
   await achatar(doc);
+  tirarUVsSobrando(root);
+  if (e.cores) for (const m of root.listMaterials()) {
+    const c = e.cores[m.getName()];
+    if (c) m.setBaseColorFactor([c[0], c[1], c[2], 1]);
+  }
+  if (e.refazerNormais) for (const p of primitivas(root)) p.setAttribute('NORMAL', null);
   await doc.transform(dedup(), join(), weld({}), prune());
   if (e.nivelar) nivelar(root);
   if (e.abaixoDe) cortarAbaixo(root, e.abaixoDe);
@@ -477,6 +550,8 @@ export async function etapa(doc, e, imagens) {
   if (e.escuro) await tirarEscuro(root, e.escuro, e.foraDe, imagens);
   tirarVazias(root);
   if (e.maiorPeca) maiorPeca(root, yMesa ?? null);
+  if (e.baixoLiso) await pintarBaixo(doc, e.baixoLiso, imagens);
+  for (const p of primitivas(root)) compactPrimitive(p); // tira os vértices que os recortes deixaram sem triângulo
   await doc.transform(prune());
   if (e.assarCores) await assarCores(doc, imagens);
   const reduzir = e.reduzir === 'auto' ? Math.min(1, TRIANGULOS / triangulos(doc)) : e.reduzir;
