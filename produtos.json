@@ -20,27 +20,6 @@
   ],
   "produtos": [
     {
-      "id": "bitoque",
-      "nome": "Bitoque da Casa",
-      "categoria": "pratos",
-      "descricao": "Bife de porco grelhado com cebolada de tomate e pimento, coroado com ovo estrelado.",
-      "preco": 12.5,
-      "foto": "fotos/bitoque.jpg",
-      "modelo": "modelos/bitoque.glb",
-      "medida": "Prato Ø 25 cm",
-      "peso_g": 360,
-      "ingredientes": [
-        "Bife de porco",
-        "Ovo",
-        "Tomate",
-        "Pimento",
-        "Cebola",
-        "Alho",
-        "Azeite"
-      ],
-      "destaque": "Mais pedido"
-    },
-    {
       "id": "hamburguer",
       "nome": "Hambúrguer Clássico",
       "categoria": "pratos",
