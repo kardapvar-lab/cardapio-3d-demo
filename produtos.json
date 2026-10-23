@@ -20,25 +20,6 @@
   ],
   "produtos": [
     {
-      "id": "pizza-margherita",
-      "nome": "Pizza Margherita",
-      "categoria": "pizzas",
-      "descricao": "Molho de tomate San Marzano, mozzarella fior di latte, manjericão fresco e orégãos.",
-      "preco": 10.5,
-      "foto": "fotos/pizza-margherita.jpg",
-      "modelo": "modelos/pizza-margherita.glb",
-      "medida": "Pizza Ø 31 cm · serve 1 a 2 pessoas",
-      "peso_g": 520,
-      "ingredientes": [
-        "Massa de fermentação lenta",
-        "Tomate",
-        "Mozzarella",
-        "Manjericão",
-        "Orégãos",
-        "Azeite"
-      ]
-    },
-    {
       "id": "pasteis-de-nata",
       "nome": "Pastéis de Nata",
       "categoria": "sobremesas",
