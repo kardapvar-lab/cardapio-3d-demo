@@ -39,25 +39,6 @@
       "destaque": "Feito na casa"
     },
     {
-      "id": "tarte-de-limao",
-      "nome": "Tarte de Limão Merengada",
-      "categoria": "sobremesas",
-      "descricao": "Massa amanteigada, creme de limão e merengue italiano tostado ao maçarico.",
-      "preco": 4.8,
-      "foto": "fotos/tarte-de-limao.jpg",
-      "modelo": "modelos/tarte-de-limao.glb",
-      "medida": "Tarte Ø 12 cm · altura 6 cm",
-      "peso_g": 170,
-      "ingredientes": [
-        "Massa sablée",
-        "Limão",
-        "Ovos",
-        "Açúcar",
-        "Manteiga"
-      ],
-      "destaque": "Novidade"
-    },
-    {
       "id": "laranja",
       "nome": "Laranja",
       "categoria": "pratos",
