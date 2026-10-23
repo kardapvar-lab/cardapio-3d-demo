@@ -313,7 +313,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261022-234439';
+  const VERSAO = '20261023-135300';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })
@@ -501,11 +501,11 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
     $('#f-nome').textContent = p.nome;
     $('#f-preco').textContent = moeda.format(p.preco);
     $('#f-desc').textContent = p.descricao;
-    $('#f-peso').textContent = `${p.peso_g} g`;
-    $('#f-kcal').textContent = `${p.kcal} kcal`;
+    $('#f-peso').textContent = p.peso_g ? `${p.peso_g} g` : '—';
+    $('#f-kcal').textContent = p.kcal ? `${p.kcal} kcal` : '—';
     $('#f-tam').textContent = (p.medida.match(/Ø\s?\d+\s?cm/) || [p.medida.split('·')[0].trim()])[0];
     $('#f-medida').textContent = `${p.medida}. Na realidade aumentada o prato aparece neste tamanho real.`;
-    $('#f-ing').textContent = p.ingredientes.join(', ') + '.';
+    $('#f-ing').textContent = p.ingredientes.length ? p.ingredientes.join(', ') + '.' : '—';
     $('#f-alerg').innerHTML = p.alergenos.length
       ? p.alergenos.map((a) => `<span class="tag">${esc(a)}</span>`).join('')
       : '<span class="tag">Sem alergénios declarados</span>';
