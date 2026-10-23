@@ -2,7 +2,7 @@
   "restaurante": {
     "nome": "Tasca do Largo",
     "subtitulo": "Cozinha portuguesa e clássicos da casa",
-    "moeda": "EUR"
+    "moeda": "BRL"
   },
   "categorias": [
     {
@@ -29,7 +29,6 @@
       "modelo": "modelos/bitoque.glb",
       "medida": "Prato Ø 25 cm",
       "peso_g": 360,
-      "kcal": 680,
       "ingredientes": [
         "Bife de porco",
         "Ovo",
@@ -38,9 +37,6 @@
         "Cebola",
         "Alho",
         "Azeite"
-      ],
-      "alergenos": [
-        "Ovo"
       ],
       "destaque": "Mais pedido"
     },
@@ -54,18 +50,12 @@
       "modelo": "modelos/hamburguer.glb",
       "medida": "Tábua 31 × 22 cm · com batata frita",
       "peso_g": 420,
-      "kcal": 950,
       "ingredientes": [
         "Carne de novilho",
         "Queijo cheddar",
         "Alface",
         "Pão brioche",
         "Batata"
-      ],
-      "alergenos": [
-        "Glúten",
-        "Leite",
-        "Ovo"
       ]
     },
     {
@@ -78,7 +68,6 @@
       "modelo": "modelos/pizza-margherita.glb",
       "medida": "Pizza Ø 31 cm · serve 1 a 2 pessoas",
       "peso_g": 520,
-      "kcal": 1150,
       "ingredientes": [
         "Massa de fermentação lenta",
         "Tomate",
@@ -86,10 +75,6 @@
         "Manjericão",
         "Orégãos",
         "Azeite"
-      ],
-      "alergenos": [
-        "Glúten",
-        "Leite"
       ]
     },
     {
@@ -102,18 +87,12 @@
       "modelo": "modelos/pasteis-de-nata.glb",
       "medida": "5 unidades · Ø 7 cm cada",
       "peso_g": 325,
-      "kcal": 950,
       "ingredientes": [
         "Massa folhada",
         "Gemas de ovo",
         "Leite",
         "Açúcar",
         "Canela"
-      ],
-      "alergenos": [
-        "Glúten",
-        "Ovo",
-        "Leite"
       ],
       "destaque": "Feito na casa"
     },
@@ -127,18 +106,12 @@
       "modelo": "modelos/tarte-de-limao.glb",
       "medida": "Tarte Ø 12 cm · altura 6 cm",
       "peso_g": 170,
-      "kcal": 480,
       "ingredientes": [
         "Massa sablée",
         "Limão",
         "Ovos",
         "Açúcar",
         "Manteiga"
-      ],
-      "alergenos": [
-        "Glúten",
-        "Ovo",
-        "Leite"
       ],
       "destaque": "Novidade"
     },
@@ -152,9 +125,7 @@
       "modelo": "modelos/laranja.glb",
       "medida": "Ø 25 cm",
       "peso_g": null,
-      "kcal": null,
       "ingredientes": [],
-      "alergenos": [],
       "destaque": null
     }
   ]

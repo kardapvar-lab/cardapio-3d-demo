@@ -49,11 +49,15 @@ Tudo no iPhone, sem computador: abra `https://<seu-usuario>.github.io/cardapio-3
 2. **Modelo 3D:** na página, escolha o arquivo. Ela tira a mesa em volta, centraliza, reduz pro
    celular e mostra o prato em 3D, com as medidas. Se precisar: diâmetro real, recorte, girar a frente.
 3. **Foto da lista:** tire uma foto do prato ou use a imagem do próprio 3D.
-4. **Dados:** nome, categoria, preço, descrição, peso, kcal, ingredientes, alergénios.
+4. **Dados:** nome, categoria, preço (R$), descrição, peso, ingredientes.
 5. **Publicar:** grava modelo, foto e prato no repositório num commit só e carimba a versão (como o
    `versao.py`); em ~1 minuto o GitHub Pages atualiza e o prato aparece. Na primeira vez, em
    "Conexão com o GitHub", cole um token *fine-grained* só deste repositório com permissão
    **Contents: Read and write** (fica guardado só naquele celular).
+
+Na aba **Pratos do cardápio** da mesma página dá pra **editar** um prato (o formulário abre preenchido,
+com o modelo e a foto atuais; só sobe de novo o que for trocado, e o endereço `#id` não muda) ou
+**excluir** (sai do `produtos.json` junto com o modelo e a foto).
 
 Depois de publicar pelo celular, o repositório no GitHub fica na frente da cópia no computador:
 rode `git pull` antes de mexer no projeto por aqui.
@@ -79,7 +83,7 @@ rode `git pull` antes de mexer no projeto por aqui.
    gera `fotos/frango-assado.jpg` a partir do modelo e põe o prato no `produtos.json`.
 3. **Conferir e completar:** abra `ferramentas/scans-originais/frango-assado-previa.png` (de cima, de
    frente e na diagonal) e o tamanho que ele imprimiu. Na ficha, preencha nome, categoria, preço,
-   descrição, peso, kcal, ingredientes e alergénios. Se precisar:
+   descrição, peso e ingredientes. Se precisar:
    - tamanho errado → `"diametro": 0.27` (metros) na última etapa;
    - frente do prato virada → `"giro": 90` (graus);
    - sobra de mesa ou de fundo → uma 2ª etapa `{"recorte": {"cx": 0, "cz": 0, "r": 0.14}, "maiorPeca": true}`
@@ -133,9 +137,7 @@ Cada produto em `produtos.json`:
   "modelo": "modelos/bitoque.glb",
   "medida": "Prato Ø 29 cm",
   "peso_g": 380,
-  "kcal": 790,
   "ingredientes": ["..."],
-  "alergenos": ["Ovo"],
   "destaque": "Mais pedido"
 }
 ```

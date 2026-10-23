@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -38,7 +38,6 @@ input, select, textarea {
 }
 textarea { min-height: 76px; resize: vertical; }
 .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.linha3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 button, .botao {
   font: 500 15px/1 var(--font); padding: 13px 16px; border-radius: 10px; border: 1px solid var(--line);
   background: #fff; color: var(--ink); cursor: pointer; text-align: center;
@@ -64,22 +63,67 @@ details summary { cursor: pointer; font-size: 14px; }
 details[open] summary { margin-bottom: 10px; }
 details > div { display: grid; gap: 10px; }
 a { color: var(--accent); }
+.abas { display: flex; gap: 4px; margin-top: 14px; padding: 4px; border-radius: 12px; background: var(--stage); }
+.abas button { flex: 1; border: 0; background: transparent; padding: 11px 8px; font-size: 14px; color: var(--muted); }
+.abas button[aria-selected=true] { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+header details { margin-top: 14px; }
+.editando { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px;
+  border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 14px; margin-top: 18px; }
+.editando button { padding: 9px 12px; font-size: 14px; flex: none; }
+h3 { margin: 8px 0 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.lista li { display: grid; grid-template-columns: 64px 1fr; gap: 8px 12px; align-items: center; padding: 10px;
+  border: 1px solid var(--line); border-radius: 12px; }
+.lista img { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--stage); }
+.lista li > div:first-of-type { display: grid; gap: 2px; min-width: 0; }
+.lista .acoes { grid-column: 1 / -1; display: flex; gap: 8px; }
+.lista .acoes button { flex: 1; padding: 10px; font-size: 14px; }
+button.perigo { color: var(--accent); }
 </style>
 </head>
 <body>
 <main>
   <header>
     <b>KARDAP</b>
-    <h1>Cadastrar prato</h1>
-    <p class="dica">Escaneie o prato, confira o 3D, preencha os dados e publique no cardápio.</p>
+    <h1>Cardápio</h1>
+    <p class="dica">Cadastre pratos novos com o scan 3D, ou edite e exclua os que já estão no cardápio.</p>
+    <nav class="abas" role="tablist">
+      <button role="tab" id="aba-novo" aria-selected="true">Cadastrar prato</button>
+      <button role="tab" id="aba-pratos" aria-selected="false">Pratos do cardápio</button>
+    </nav>
+    <details id="conexao">
+      <summary>Conexão com o GitHub <span id="estado-conexao" class="dica"></span></summary>
+      <div>
+        <p class="dica">Só uma vez neste celular. Crie um token em github.com → Settings → Developer settings →
+          Fine-grained tokens, só pra este repositório, com permissão <b>Contents: Read and write</b>.
+          Ele fica guardado só neste aparelho. Ou abra uma vez o link
+          <b>cadastrar.html#token=SEU_TOKEN</b>, que já deixa tudo configurado.</p>
+        <label>Repositório<input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <label>Token<input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <div class="botoes"><button id="testar">Salvar e testar</button></div>
+      </div>
+    </details>
   </header>
+
+  <div id="tela-pratos" class="escondido">
+    <section>
+      <p class="dica" id="estado-lista">Carregando…</p>
+      <div id="lista" style="display:grid; gap:10px"></div>
+    </section>
+  </div>
+
+  <div id="tela-novo">
+  <div class="editando escondido" id="editando">
+    <span>Editando <b id="editando-nome"></b></span>
+    <button id="cancelar-edicao">Cancelar edição</button>
+  </div>
 
   <section>
     <h2><span>1</span>Modelo 3D</h2>
     <p class="dica">No <b>Scaniverse</b>, escaneie o prato dando 2 ou 3 voltas devagar (baixa, a 45° e por cima),
       com luz clara e o prato parado numa mesa fosca. Depois abra o scan, exporte em <b>GLB</b> e salve em Arquivos.
       O que sobrar da mesa em volta sai sozinho.</p>
-    <label class="botao principal" for="arquivo-scan">Escolher o arquivo do scan (.glb)</label>
+    <label class="botao principal" for="arquivo-scan" id="escolher-scan">Escolher o arquivo do scan (.glb)</label>
     <input type="file" id="arquivo-scan">
     <div class="palco">
       <model-viewer id="viewer" camera-controls touch-action="pan-y" shadow-intensity="0.8" exposure="1.05"
@@ -95,8 +139,6 @@ a { color: var(--accent); }
         <label>Diâmetro real (cm)<input type="number" id="diametro" inputmode="decimal" min="3" max="80" step="0.5" placeholder="do scan"></label>
         <label>Recortar fora de (cm)<input type="number" id="recorte" inputmode="decimal" min="3" max="80" step="0.5" placeholder="não recortar"></label>
       </div>
-      <p class="dica">Diâmetro: só se o tamanho acima estiver errado (o Scaniverse já mede no iPhone com LiDAR).
-        Recortar: some tudo que estiver a mais desse raio do centro, se ainda sobrar mesa.</p>
       <div class="botoes">
         <button id="girar">Girar a frente 90°</button>
         <button id="aplicar">Aplicar ajustes</button>
@@ -121,37 +163,24 @@ a { color: var(--accent); }
     <label>Nome<input id="nome" autocomplete="off" placeholder="Frango assado da casa"></label>
     <div class="linha">
       <label>Categoria<select id="categoria"></select></label>
-      <label>Preço (€)<input type="number" id="preco" inputmode="decimal" min="0" step="0.1"></label>
+      <label>Preço (R$)<input type="number" id="preco" inputmode="decimal" min="0" step="0.01"></label>
     </div>
     <label>Descrição<textarea id="descricao" placeholder="O que vem no prato, como é feito."></textarea></label>
-    <div class="linha3">
+    <div class="linha">
       <label>Medida<input id="medida" placeholder="Ø 25 cm"></label>
       <label>Peso (g)<input type="number" id="peso" inputmode="numeric" min="0"></label>
-      <label>Energia (kcal)<input type="number" id="kcal" inputmode="numeric" min="0"></label>
     </div>
     <label>Ingredientes (separados por vírgula)<input id="ingredientes" placeholder="Frango, alho, azeite, limão"></label>
-    <label>Alergénios (separados por vírgula)<input id="alergenos" placeholder="Glúten, leite"></label>
     <label>Destaque (opcional)<input id="destaque" placeholder="Novidade"></label>
     <p class="dica" id="sobre-id"></p>
   </section>
 
   <section>
     <h2><span>4</span>Publicar</h2>
-    <details id="conexao">
-      <summary>Conexão com o GitHub <span id="estado-conexao" class="dica"></span></summary>
-      <div>
-        <p class="dica">Só uma vez neste celular. Crie um token em github.com → Settings → Developer settings →
-          Fine-grained tokens, só pra este repositório, com permissão <b>Contents: Read and write</b>.
-          Ele fica guardado só neste aparelho. Ou abra uma vez o link
-          <b>cadastrar.html#token=SEU_TOKEN</b>, que já deixa tudo configurado.</p>
-        <label>Repositório<input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-        <label>Token<input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-        <div class="botoes"><button id="testar">Salvar e testar</button></div>
-      </div>
-    </details>
     <button class="principal" id="publicar" disabled>Publicar no cardápio</button>
     <p class="progresso" id="progresso"></p>
   </section>
+  </div>
 </main>
 
 <script type="module">
@@ -333,24 +362,23 @@ $('#foto-do-modelo').addEventListener('click', async () => {
 
 // ---------- 3. dados
 let cardapio = null;
+let editando = null; // o prato do cardápio que está aberto pra editar (null = prato novo)
 const slug = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const lista = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
-
-fetch('produtos.json', { cache: 'no-store' }).then((r) => r.json()).then((d) => {
-  cardapio = d;
-  $('#categoria').innerHTML = d.categorias.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('');
-  atualizarPublicar();
-});
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function produto() {
-  const id = slug($('#nome').value);
+  // editando: o endereço (id) e os arquivos continuam os mesmos, mesmo trocando o nome
+  const id = editando ? editando.id : slug($('#nome').value);
   const numero = (s) => (s.value === '' ? null : Number(s.value.replace(',', '.')));
   return {
+    ...editando, // campos que a página não mostra ficam como estavam
     id, nome: $('#nome').value.trim(), categoria: $('#categoria').value,
     descricao: $('#descricao').value.trim(), preco: numero($('#preco')) ?? 0,
-    foto: `fotos/${id}.jpg`, modelo: `modelos/${id}.glb`, medida: $('#medida').value.trim(),
-    peso_g: numero($('#peso')), kcal: numero($('#kcal')),
-    ingredientes: lista($('#ingredientes').value), alergenos: lista($('#alergenos').value),
+    foto: editando?.foto ?? `fotos/${id}.jpg`, modelo: editando?.modelo ?? `modelos/${id}.glb`,
+    medida: $('#medida').value.trim(),
+    peso_g: numero($('#peso')),
+    ingredientes: lista($('#ingredientes').value),
     destaque: $('#destaque').value.trim() || null,
   };
 }
@@ -382,7 +410,7 @@ async function gh(caminho, opcoes = {}) {
   });
   if (!r.ok) {
     const corpo = await r.json().catch(() => ({}));
-    throw new Error(`GitHub respondeu ${r.status}${corpo.message ? ': ' + corpo.message : ''}`);
+    throw Object.assign(new Error(`GitHub respondeu ${r.status}${corpo.message ? ': ' + corpo.message : ''}`), { status: r.status });
   }
   return r.json();
 }
@@ -395,7 +423,7 @@ $('#testar').addEventListener('click', async () => {
     const repo = await gh('');
     const pode = repo.permissions?.push;
     $('#estado-conexao').textContent = pode ? '· ok' : '· o token não tem permissão de escrita';
-    if (pode) $('#conexao').open = false;
+    if (pode) { $('#conexao').open = false; recarregar(); }
   } catch (e) {
     $('#estado-conexao').textContent = '· ' + e.message;
   }
@@ -405,12 +433,16 @@ if (doLink) $('#testar').click();
 
 function atualizarPublicar() {
   const p = cardapio && produto();
-  const falta = !glb ? 'o modelo 3D' : !foto ? 'a foto' : !p?.nome ? 'o nome' : !(p.preco > 0) ? 'o preço'
-    : !$('#token').value.trim() ? 'a conexão com o GitHub' : null;
+  // editando, o modelo e a foto que já estão no cardápio valem: só sobe o que for trocado
+  const falta = !glb && !editando ? 'o modelo 3D' : !foto && !editando ? 'a foto' : !p?.nome ? 'o nome'
+    : !(p.preco > 0) ? 'o preço' : !$('#token').value.trim() ? 'a conexão com o GitHub' : null;
+  const acao = editando ? 'Salvar alterações' : 'Publicar no cardápio';
   $('#publicar').disabled = !!falta;
-  $('#publicar').textContent = falta ? `Publicar (falta ${falta})` : 'Publicar no cardápio';
-  const existe = p?.id && cardapio.produtos.some((q) => q.id === p.id);
-  $('#sobre-id').textContent = p?.id ? `Endereço do prato: #${p.id}${existe ? ' · já existe um prato com esse nome: ele vai ser substituído' : ''}` : '';
+  $('#publicar').textContent = falta ? `${acao} (falta ${falta})` : acao;
+  const existe = !editando && p?.id && cardapio.produtos.some((q) => q.id === p.id);
+  $('#sobre-id').textContent = !p?.id ? ''
+    : editando ? `Endereço do prato: #${p.id} (continua o mesmo)`
+    : `Endereço do prato: #${p.id}${existe ? ' · já existe um prato com esse nome: ele vai ser substituído (pra só mudar ele, use Editar em "Pratos do cardápio")' : ''}`;
 }
 
 function base64(bytes) {
@@ -419,11 +451,46 @@ function base64(bytes) {
   return btoa(s);
 }
 const deBase64Texto = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
-const base64Texto = (texto) => base64(new TextEncoder().encode(texto));
 // mesmo carimbo do ferramentas/versao.py (hora local, AAAAMMDD-HHMMSS)
 function carimbo() {
   const d = new Date(), z = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`;
+}
+
+// Grava no repositório num commit só: mudar(dados) mexe no produtos.json e devolve a mensagem do
+// commit e os arquivos a apagar; arquivos = [caminho, bytes] a subir. Carimba a versão (index.html e
+// versao.json, como o versao.py) pra quem está com o cardápio aberto pegar a novidade.
+async function gravar({ mudar, arquivos = [], passo }) {
+  passo('Lendo o cardápio atual…');
+  const ref = await gh('/git/ref/heads/main');
+  const base = await gh(`/git/commits/${ref.object.sha}`);
+  const atual = async (arq) => deBase64Texto((await gh(`/contents/${arq}?ref=${ref.object.sha}`)).content);
+  const existe = (arq) => gh(`/contents/${arq}?ref=${ref.object.sha}`).then(() => true, (e) => (e.status === 404 ? false : Promise.reject(e)));
+  const dados = JSON.parse(await atual('produtos.json'));
+  const { mensagem, apagar = [] } = mudar(dados);
+  // mesmo formato do arquivo (escrito pelo Python: preço sempre com casa decimal, 11.0)
+  const produtos = JSON.stringify(dados, null, 2).replace(/^(\s*"preco": )(\d+)(,?)$/gm, '$1$2.0$3') + '\n';
+  const versao = carimbo();
+  const index = (await atual('index.html')).replace(/const VERSAO = '[^']*';/, `const VERSAO = '${versao}';`);
+
+  passo(arquivos.length ? 'Enviando o modelo e a foto…' : 'Enviando…');
+  const blob = async (bytes) => (await gh('/git/blobs', { method: 'POST', body: JSON.stringify({ content: base64(bytes), encoding: 'base64' }) })).sha;
+  const texto = (t) => new TextEncoder().encode(t);
+  const entradas = [];
+  for (const [path, bytes] of [...arquivos, ['produtos.json', texto(produtos)], ['index.html', texto(index)],
+    ['versao.json', texto(JSON.stringify({ versao }) + '\n')]]) {
+    entradas.push({ path, mode: '100644', type: 'blob', sha: await blob(bytes) });
+  }
+  for (const path of apagar) if (await existe(path)) entradas.push({ path, mode: '100644', type: 'blob', sha: null });
+
+  passo('Gravando…');
+  const arvore = await gh('/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base.tree.sha, tree: entradas }) });
+  const commit = await gh('/git/commits', { method: 'POST', body: JSON.stringify({
+    message: mensagem, tree: arvore.sha, parents: [ref.object.sha],
+  }) });
+  await gh('/git/refs/heads/main', { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
+  cardapio = dados;
+  renderLista();
 }
 
 $('#publicar').addEventListener('click', async () => {
@@ -432,38 +499,18 @@ $('#publicar').addEventListener('click', async () => {
   $('#progresso').textContent = '';
   $('#publicar').disabled = true;
   try {
-    passo('Lendo o cardápio atual…');
-    const ref = await gh('/git/ref/heads/main');
-    const base = await gh(`/git/commits/${ref.object.sha}`);
-    const atual = async (arq) => deBase64Texto((await gh(`/contents/${arq}?ref=${ref.object.sha}`)).content);
-    const dados = JSON.parse(await atual('produtos.json'));
-    const i = dados.produtos.findIndex((q) => q.id === p.id);
-    if (i >= 0) dados.produtos[i] = p; else dados.produtos.push(p);
-    // mesmo formato do arquivo (escrito pelo Python: preço sempre com casa decimal, 11.0)
-    const produtos = JSON.stringify(dados, null, 2).replace(/^(\s*"preco": )(\d+)(,?)$/gm, '$1$2.0$3') + '\n';
-    const versao = carimbo();
-    const index = (await atual('index.html')).replace(/const VERSAO = '[^']*';/, `const VERSAO = '${versao}';`);
-
-    passo('Enviando o modelo e a foto…');
-    const blob = (content) => gh('/git/blobs', { method: 'POST', body: JSON.stringify({ content, encoding: 'base64' }) });
-    const arquivos = [
-      [p.modelo, await blob(base64(glb))],
-      [p.foto, await blob(base64(new Uint8Array(await foto.arrayBuffer())))],
-      ['produtos.json', await blob(base64Texto(produtos))],
-      ['index.html', await blob(base64Texto(index))],
-      ['versao.json', await blob(base64Texto(JSON.stringify({ versao }) + '\n'))],
-    ];
-    passo('Gravando…');
-    const arvore = await gh('/git/trees', { method: 'POST', body: JSON.stringify({
-      base_tree: base.tree.sha, tree: arquivos.map(([path, b]) => ({ path, mode: '100644', type: 'blob', sha: b.sha })),
-    }) });
-    const commit = await gh('/git/commits', { method: 'POST', body: JSON.stringify({
-      message: `${i >= 0 ? 'Prato atualizado' : 'Prato novo'}: ${p.nome} (cadastrado pelo celular)`,
-      tree: arvore.sha, parents: [ref.object.sha],
-    }) });
-    await gh('/git/refs/heads/main', { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
-
-    cardapio = dados;
+    const arquivos = [];
+    if (glb) arquivos.push([p.modelo, glb]);
+    if (foto) arquivos.push([p.foto, new Uint8Array(await foto.arrayBuffer())]);
+    await gravar({
+      arquivos, passo,
+      mudar: (dados) => {
+        const i = dados.produtos.findIndex((q) => q.id === p.id);
+        if (i >= 0) dados.produtos[i] = p; else dados.produtos.push(p);
+        return { mensagem: `${editando ? 'Prato editado' : i >= 0 ? 'Prato atualizado' : 'Prato novo'}: ${p.nome} (pelo celular)` };
+      },
+    });
+    abrirEdicao(p, { manterFormulario: true }); // daqui pra frente, salvar de novo mexe nesse mesmo prato
     const link = new URL(`./#${p.id}`, location.href).href;
     $('#progresso').innerHTML = `<span class="ok">Publicado!</span> Em cerca de 1 minuto aparece no cardápio:\n<a href="${link}">${link}</a>`;
   } catch (e) {
@@ -473,6 +520,140 @@ $('#publicar').addEventListener('click', async () => {
     atualizarPublicar();
   }
 });
+
+// ---------- abas e pratos do cardápio (editar / excluir)
+function mostrarAba(qual) {
+  $('#aba-novo').setAttribute('aria-selected', qual === 'novo');
+  $('#aba-pratos').setAttribute('aria-selected', qual === 'pratos');
+  $('#tela-novo').classList.toggle('escondido', qual !== 'novo');
+  $('#tela-pratos').classList.toggle('escondido', qual !== 'pratos');
+  scrollTo(0, 0);
+}
+$('#aba-novo').addEventListener('click', () => mostrarAba('novo'));
+$('#aba-pratos').addEventListener('click', () => { mostrarAba('pratos'); recarregar(); });
+
+// Com o token, lê direto do repositório: o site só atualiza cerca de 1 minuto depois de publicar.
+async function carregarCardapio() {
+  if ($('#token').value.trim()) {
+    try { return JSON.parse(deBase64Texto((await gh('/contents/produtos.json?ref=main')).content)); } catch (e) { console.warn(e); }
+  }
+  return (await fetch('produtos.json', { cache: 'no-store' })).json();
+}
+async function recarregar() {
+  try {
+    cardapio = await carregarCardapio();
+  } catch (e) {
+    $('#estado-lista').textContent = 'Não deu pra carregar o cardápio: ' + e.message;
+    return;
+  }
+  const escolhida = $('#categoria').value;
+  $('#categoria').innerHTML = cardapio.categorias.map((c) => `<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('');
+  if (escolhida) $('#categoria').value = escolhida;
+  renderLista();
+  atualizarPublicar();
+}
+
+const reais = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: cardapio.restaurante?.moeda || 'BRL' }).format(v);
+function renderLista() {
+  const v = Date.now(); // a foto pode ter acabado de mudar
+  const grupos = cardapio.categorias.map((c) => [c.nome, cardapio.produtos.filter((p) => p.categoria === c.id)]);
+  const soltos = cardapio.produtos.filter((p) => !cardapio.categorias.some((c) => c.id === p.categoria));
+  if (soltos.length) grupos.push(['Sem categoria', soltos]);
+  $('#lista').innerHTML = grupos.filter(([, ps]) => ps.length).map(([nome, ps]) => `<h3>${esc(nome)}</h3><ul class="lista">${
+    ps.map((p) => `<li data-id="${esc(p.id)}">
+      <img src="${esc(p.foto)}?v=${v}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div><b>${esc(p.nome)}</b><span class="dica">${reais(p.preco)}${p.destaque ? ' · ' + esc(p.destaque) : ''}</span></div>
+      <div class="acoes"><button data-acao="editar">Editar</button><button data-acao="excluir" class="perigo">Excluir</button></div>
+    </li>`).join('')}</ul>`).join('');
+  const n = cardapio.produtos.length;
+  $('#estado-lista').textContent = !n ? 'O cardápio ainda não tem pratos.'
+    : `${n} ${n === 1 ? 'prato' : 'pratos'} no cardápio.${$('#token').value.trim() ? '' : ' Pra editar ou excluir, faça a conexão com o GitHub (acima).'}`;
+}
+$('#lista').addEventListener('click', (ev) => {
+  const botao = ev.target.closest('button[data-acao]');
+  if (!botao) return;
+  const p = cardapio.produtos.find((q) => q.id === botao.closest('li').dataset.id);
+  if (!p) return;
+  if (botao.dataset.acao === 'editar') { abrirEdicao(p); mostrarAba('novo'); } else excluir(p);
+});
+
+function limparFormulario() {
+  editando = null;
+  original = glb = medidas = foto = null;
+  giro = 0;
+  for (const c of ['#nome', '#descricao', '#preco', '#medida', '#peso', '#ingredientes', '#destaque', '#diametro', '#recorte']) $(c).value = '';
+  delete $('#medida').dataset.mexido;
+  $('#viewer').removeAttribute('src');
+  $('#vazio').classList.remove('escondido');
+  $('#ajustes').classList.add('escondido');
+  $('#medidas').textContent = '';
+  aviso('');
+  $('#foto').removeAttribute('src');
+  $('#foto-do-modelo').disabled = true;
+  $('#progresso').textContent = '';
+  $('#editando').classList.add('escondido');
+  $('#escolher-scan').textContent = 'Escolher o arquivo do scan (.glb)';
+  atualizarPublicar();
+}
+$('#cancelar-edicao').addEventListener('click', limparFormulario);
+
+function abrirEdicao(p, { manterFormulario = false } = {}) {
+  if (!manterFormulario) {
+    limparFormulario();
+    $('#nome').value = p.nome;
+    $('#categoria').value = p.categoria;
+    $('#descricao').value = p.descricao || '';
+    $('#preco').value = p.preco ?? '';
+    $('#medida').value = p.medida || '';
+    $('#peso').value = p.peso_g ?? '';
+    $('#ingredientes').value = (p.ingredientes || []).join(', ');
+    $('#destaque').value = p.destaque || '';
+    // o que já está publicado (o ?v= fura o cache do site, que guarda os arquivos por uns minutos)
+    const v = Date.now();
+    $('#viewer').src = `${p.modelo}?v=${v}`;
+    $('#vazio').classList.add('escondido');
+    $('#foto-do-modelo').disabled = false;
+    $('#medidas').textContent = 'Modelo 3D que está no cardápio. Escolha outro arquivo só se quiser trocar.';
+    $('#foto').src = `${p.foto}?v=${v}`;
+  }
+  editando = p;
+  glb = foto = null; // já foram publicados: salvar de novo não sobe de novo
+  $('#editando-nome').textContent = p.nome;
+  $('#editando').classList.remove('escondido');
+  $('#escolher-scan').textContent = 'Trocar o modelo 3D (escolher outro .glb)';
+  atualizarPublicar();
+}
+
+async function excluir(p) {
+  const estado = (t) => { $('#estado-lista').textContent = t; };
+  if (!$('#token').value.trim()) {
+    estado('Pra excluir, faça antes a conexão com o GitHub (acima).');
+    $('#conexao').open = true;
+    return;
+  }
+  if (!confirm(`Excluir "${p.nome}" do cardápio?\n\nO prato, o modelo 3D e a foto saem do site.`)) return;
+  document.querySelectorAll('#lista button').forEach((b) => (b.disabled = true));
+  try {
+    await gravar({
+      passo: estado,
+      mudar: (dados) => {
+        dados.produtos = dados.produtos.filter((q) => q.id !== p.id);
+        // os arquivos só saem se nenhum outro prato usa
+        const usados = new Set(dados.produtos.flatMap((q) => [q.modelo, q.foto]));
+        const apagar = [p.modelo, p.foto, `ferramentas/pratos/${p.id}.json`].filter((a) => a && !usados.has(a));
+        return { mensagem: `Prato excluído: ${p.nome} (pelo celular)`, apagar };
+      },
+    });
+    if (editando?.id === p.id) limparFormulario();
+    estado(`"${p.nome}" foi excluído. Em cerca de 1 minuto sai do cardápio.`);
+  } catch (e) {
+    console.error(e);
+    estado('Não deu pra excluir: ' + e.message);
+    renderLista();
+  }
+}
+
+recarregar();
 </script>
 </body>
 </html>

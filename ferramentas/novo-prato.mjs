@@ -41,8 +41,8 @@ if (scanNovo) {
     fs.writeFileSync(fichaArq, JSON.stringify({
       produto: {
         id, nome, categoria: cardapio.categorias[0].id, descricao: '', preco: 0,
-        foto: `fotos/${id}.jpg`, modelo: `modelos/${id}.glb`, medida: '', peso_g: null, kcal: null,
-        ingredientes: [], alergenos: [], destaque: null,
+        foto: `fotos/${id}.jpg`, modelo: `modelos/${id}.glb`, medida: '', peso_g: null,
+        ingredientes: [], destaque: null,
       },
       // fotoAutomatica: true = fotos/<id>.jpg sai do próprio modelo (ponha false ao trocar por uma foto de verdade)
       fotoAutomatica: true,
@@ -94,7 +94,7 @@ if (!p.medida) {
   fs.writeFileSync(fichaArq, JSON.stringify(ficha, null, 2) + '\n');
   console.log(`  medida: ${p.medida} (do modelo)`);
 }
-if (!p.peso_g || !p.kcal) console.warn('  atenção: falta peso_g ou kcal na ficha (na página aparece "—")');
+if (!p.peso_g) console.warn('  atenção: falta peso_g na ficha (na página aparece "—")');
 if (!cardapio.categorias.some((c) => c.id === p.categoria))
   console.warn(`  atenção: a categoria "${p.categoria}" não existe (tem: ${cardapio.categorias.map((c) => c.id).join(', ')})`);
 if (!p.preco) console.warn('  atenção: o prato está sem preço na ficha');
