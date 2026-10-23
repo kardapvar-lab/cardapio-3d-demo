@@ -402,6 +402,7 @@ $('#conexao').open = !$('#token').value;
 
 async function gh(caminho, opcoes = {}) {
   const r = await fetch(`https://api.github.com/repos/${$('#repo').value.trim()}${caminho}`, {
+    cache: 'no-store', // a API manda guardar por 60 s: depois de excluir, a lista voltava com o prato
     ...opcoes,
     headers: {
       Authorization: `Bearer ${$('#token').value.trim()}`, Accept: 'application/vnd.github+json',
@@ -466,22 +467,26 @@ async function gravar({ mudar, arquivos = [], passo }) {
   const base = await gh(`/git/commits/${ref.object.sha}`);
   const atual = async (arq) => deBase64Texto((await gh(`/contents/${arq}?ref=${ref.object.sha}`)).content);
   const existe = (arq) => gh(`/contents/${arq}?ref=${ref.object.sha}`).then(() => true, (e) => (e.status === 404 ? false : Promise.reject(e)));
-  const dados = JSON.parse(await atual('produtos.json'));
+  const [produtosAtual, indexAtual] = await Promise.all([atual('produtos.json'), atual('index.html')]);
+  const dados = JSON.parse(produtosAtual);
   const { mensagem, apagar = [] } = mudar(dados);
   // mesmo formato do arquivo (escrito pelo Python: preço sempre com casa decimal, 11.0)
   const produtos = JSON.stringify(dados, null, 2).replace(/^(\s*"preco": )(\d+)(,?)$/gm, '$1$2.0$3') + '\n';
   const versao = carimbo();
-  const index = (await atual('index.html')).replace(/const VERSAO = '[^']*';/, `const VERSAO = '${versao}';`);
+  const index = indexAtual.replace(/const VERSAO = '[^']*';/, `const VERSAO = '${versao}';`);
 
   passo(arquivos.length ? 'Enviando o modelo e a foto…' : 'Enviando…');
   const blob = async (bytes) => (await gh('/git/blobs', { method: 'POST', body: JSON.stringify({ content: base64(bytes), encoding: 'base64' }) })).sha;
   const texto = (t) => new TextEncoder().encode(t);
-  const entradas = [];
-  for (const [path, bytes] of [...arquivos, ['produtos.json', texto(produtos)], ['index.html', texto(index)],
-    ['versao.json', texto(JSON.stringify({ versao }) + '\n')]]) {
-    entradas.push({ path, mode: '100644', type: 'blob', sha: await blob(bytes) });
-  }
-  for (const path of apagar) if (await existe(path)) entradas.push({ path, mode: '100644', type: 'blob', sha: null });
+  // tudo em paralelo: uma requisição de cada vez deixava o publicar e o excluir lentos
+  const subir = [...arquivos, ['produtos.json', texto(produtos)], ['index.html', texto(index)],
+    ['versao.json', texto(JSON.stringify({ versao }) + '\n')]];
+  const [shas, existem] = await Promise.all([
+    Promise.all(subir.map(([, bytes]) => blob(bytes))),
+    Promise.all(apagar.map(existe)),
+  ]);
+  const entradas = subir.map(([path], i) => ({ path, mode: '100644', type: 'blob', sha: shas[i] }))
+    .concat(apagar.filter((_, i) => existem[i]).map((path) => ({ path, mode: '100644', type: 'blob', sha: null })));
 
   passo('Gravando…');
   const arvore = await gh('/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base.tree.sha, tree: entradas }) });
@@ -491,6 +496,22 @@ async function gravar({ mudar, arquivos = [], passo }) {
   await gh('/git/refs/heads/main', { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
   cardapio = dados;
   renderLista();
+  return versao;
+}
+
+// O GitHub Pages leva de 30 s a 1 minuto pra pôr no ar: espera o versao.json do site mudar pra
+// avisar quando o cardápio já está atualizado (quem está com ele aberto recarrega sozinho).
+async function esperarSite(versao, avisar) {
+  const inicio = Date.now();
+  while (Date.now() - inicio < 5 * 60e3) {
+    await new Promise((ok) => setTimeout(ok, 5000));
+    try {
+      const v = (await (await fetch(`versao.json?t=${Date.now()}`, { cache: 'no-store' })).json()).versao;
+      if (v === versao) return avisar(true);
+    } catch { /* sem internet um instante: tenta de novo */ }
+    avisar(false, Math.round((Date.now() - inicio) / 1000));
+  }
+  avisar(null);
 }
 
 $('#publicar').addEventListener('click', async () => {
@@ -502,7 +523,7 @@ $('#publicar').addEventListener('click', async () => {
     const arquivos = [];
     if (glb) arquivos.push([p.modelo, glb]);
     if (foto) arquivos.push([p.foto, new Uint8Array(await foto.arrayBuffer())]);
-    await gravar({
+    const versao = await gravar({
       arquivos, passo,
       mudar: (dados) => {
         const i = dados.produtos.findIndex((q) => q.id === p.id);
@@ -512,7 +533,13 @@ $('#publicar').addEventListener('click', async () => {
     });
     abrirEdicao(p, { manterFormulario: true }); // daqui pra frente, salvar de novo mexe nesse mesmo prato
     const link = new URL(`./#${p.id}`, location.href).href;
-    $('#progresso').innerHTML = `<span class="ok">Publicado!</span> Em cerca de 1 minuto aparece no cardápio:\n<a href="${link}">${link}</a>`;
+    const mostrar = (pronto, s) => {
+      $('#progresso').innerHTML = pronto
+        ? `<span class="ok">Pronto, já está no cardápio:</span>\n<a href="${link}">${link}</a>`
+        : `<span class="ok">Salvo!</span> ${pronto === null ? 'O site está demorando pra atualizar; confira daqui a pouco' : `Atualizando o site… ${s ? s + ' s ' : ''}(leva até 1 minuto, pode continuar usando a página)`}:\n<a href="${link}">${link}</a>`;
+    };
+    mostrar(false);
+    esperarSite(versao, mostrar);
   } catch (e) {
     console.error(e);
     passo('Não deu pra publicar: ' + e.message);
@@ -634,7 +661,7 @@ async function excluir(p) {
   if (!confirm(`Excluir "${p.nome}" do cardápio?\n\nO prato, o modelo 3D e a foto saem do site.`)) return;
   document.querySelectorAll('#lista button').forEach((b) => (b.disabled = true));
   try {
-    await gravar({
+    const versao = await gravar({
       passo: estado,
       mudar: (dados) => {
         dados.produtos = dados.produtos.filter((q) => q.id !== p.id);
@@ -645,7 +672,14 @@ async function excluir(p) {
       },
     });
     if (editando?.id === p.id) limparFormulario();
-    estado(`"${p.nome}" foi excluído. Em cerca de 1 minuto sai do cardápio.`);
+    const nome = p.nome;
+    estado(`"${nome}" foi excluído. Atualizando o site… (leva até 1 minuto)`);
+    esperarSite(versao, (pronto, s) => {
+      if (!$('#estado-lista').textContent.includes(`"${nome}"`)) return; // já mostrou outra coisa
+      estado(pronto ? `"${nome}" foi excluído e já saiu do cardápio.`
+        : pronto === null ? `"${nome}" foi excluído; o site está demorando pra atualizar, confira daqui a pouco.`
+        : `"${nome}" foi excluído. Atualizando o site… ${s} s (leva até 1 minuto)`);
+    });
   } catch (e) {
     console.error(e);
     estado('Não deu pra excluir: ' + e.message);
