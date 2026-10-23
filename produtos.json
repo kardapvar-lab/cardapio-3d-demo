@@ -20,25 +20,6 @@
   ],
   "produtos": [
     {
-      "id": "pasteis-de-nata",
-      "nome": "Pastéis de Nata",
-      "categoria": "sobremesas",
-      "descricao": "Cinco pastéis acabados de sair do forno, massa folhada estaladiça e canela à parte.",
-      "preco": 6.5,
-      "foto": "fotos/pasteis-de-nata.jpg",
-      "modelo": "modelos/pasteis-de-nata.glb",
-      "medida": "5 unidades · Ø 7 cm cada",
-      "peso_g": 325,
-      "ingredientes": [
-        "Massa folhada",
-        "Gemas de ovo",
-        "Leite",
-        "Açúcar",
-        "Canela"
-      ],
-      "destaque": "Feito na casa"
-    },
-    {
       "id": "laranja",
       "nome": "Laranja",
       "categoria": "pratos",
