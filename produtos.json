@@ -20,24 +20,6 @@
   ],
   "produtos": [
     {
-      "id": "hamburguer",
-      "nome": "Hambúrguer Clássico",
-      "categoria": "pratos",
-      "descricao": "Novilho 180 g, cheddar, alface e pão brioche, servido na tábua com batata frita caseira.",
-      "preco": 11.0,
-      "foto": "fotos/hamburguer.jpg",
-      "modelo": "modelos/hamburguer.glb",
-      "medida": "Tábua 31 × 22 cm · com batata frita",
-      "peso_g": 420,
-      "ingredientes": [
-        "Carne de novilho",
-        "Queijo cheddar",
-        "Alface",
-        "Pão brioche",
-        "Batata"
-      ]
-    },
-    {
       "id": "pizza-margherita",
       "nome": "Pizza Margherita",
       "categoria": "pizzas",
