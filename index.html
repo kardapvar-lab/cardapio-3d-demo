@@ -302,7 +302,7 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, .55); }
 
   // Atualização automática: a cada publicação, ferramentas/versao.py troca este número
   // e o versao.json. A página compara os dois sem usar cache e, se mudou, recarrega na versão nova.
-  const VERSAO = '20261023-211254';
+  const VERSAO = '20261023-211722';
   window.KARDAP_VERSAO = VERSAO;
   function checarVersao() {
     fetch('versao.json', { cache: 'no-store' })

@@ -51,25 +51,6 @@
         "url": "https://sketchfab.com/3d-models/pizza-40d50989fec1460f8838b608d999ccd0",
         "licenca": "CC BY 4.0"
       }
-    },
-    {
-      "id": "coca-cola-lata",
-      "nome": "Coca-Cola Lata",
-      "categoria": "bebidas",
-      "descricao": "Lata de 350 ml, servida bem gelada.",
-      "preco": 7.0,
-      "foto": "fotos/coca-cola-lata.jpg",
-      "modelo": "modelos/coca-cola-lata.glb",
-      "medida": "Lata 350 ml",
-      "peso_g": 350,
-      "ingredientes": [],
-      "destaque": null,
-      "alergenos": [],
-      "credito": {
-        "autor": "Gioy",
-        "url": "https://sketchfab.com/3d-models/coca-cola-can-a169b9d5818245168ea45e568fde3551",
-        "licenca": "CC BY 4.0"
-      }
     }
   ]
 }
