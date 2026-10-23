@@ -441,6 +441,7 @@ async function fecharFundo(doc, imagens) {
 
 // Depois das etapas: normais, material sem brilho e texturas leves.
 // opcoes.fecharFundo: tampa a base (ver fecharFundo).
+// opcoes.manterMaterial: não troca metal/rugosidade (para objetos modelados, como uma lata).
 export async function finalizar(doc, imagens, opcoes = {}) {
   const root = doc.getRoot();
   normaisSuaves(doc);
@@ -448,7 +449,8 @@ export async function finalizar(doc, imagens, opcoes = {}) {
   // dupla face: buracos pequenos do scan mostram a cor do lado de dentro em vez de "sumir"
   for (const m of root.listMaterials()) if (m.getName() !== 'fundo') m.setDoubleSided(true);
   for (const ext of root.listExtensionsUsed()) if (ext.extensionName === 'KHR_materials_unlit') ext.dispose();
-  for (const m of root.listMaterials()) m.setMetallicFactor(0).setRoughnessFactor(0.9);
+  // scans de comida: material fosco. Objetos modelados (lata, garrafa) mantêm o metal/brilho original.
+  if (!opcoes.manterMaterial) for (const m of root.listMaterials()) m.setMetallicFactor(0).setRoughnessFactor(0.9);
   await imagens.comprimir(doc);
   await doc.transform(prune());
   return { fechouFundo };
